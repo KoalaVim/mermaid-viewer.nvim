@@ -39,6 +39,10 @@ function M.open()
 
   vim.bo[buf].modifiable = false
   vim.bo[buf].buftype = "nofile"
+  vim.wo[win].winblend = 100
+  vim.wo[win].winhighlight = "Normal:MermaidViewerFloat,NormalFloat:MermaidViewerFloat"
+
+  vim.api.nvim_set_hl(0, "MermaidViewerFloat", { bg = "NONE" })
 
   return win, buf
 end
