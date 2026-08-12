@@ -22,13 +22,22 @@ function M.check()
     )
   end
 
-  local ok = pcall(require, "image")
-  if ok then
-    vim.health.ok("image.nvim is available")
+  local term = vim.env.TERM or ""
+  local term_program = vim.env.TERM_PROGRAM or ""
+  local kitty_terms = { "xterm%-kitty", "kitty", "wezterm", "ghostty" }
+  local is_kitty = false
+  for _, pat in ipairs(kitty_terms) do
+    if term:match(pat) or term_program:lower():match(pat) then
+      is_kitty = true
+      break
+    end
+  end
+  if is_kitty then
+    vim.health.ok("Kitty graphics protocol supported (" .. (term_program ~= "" and term_program or term) .. ")")
   else
-    vim.health.error(
-      "image.nvim not found",
-      { "Install image.nvim: https://github.com/3rd/image.nvim" }
+    vim.health.warn(
+      "Terminal may not support Kitty graphics protocol",
+      { "Use Kitty, WezTerm, or Ghostty terminal" }
     )
   end
 

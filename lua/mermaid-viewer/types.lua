@@ -43,7 +43,7 @@
 ---@field source_buf number Source buffer handle
 ---@field float_win number Float window handle
 ---@field float_buf number Float buffer handle
----@field image any image.nvim image object
+---@field image number|nil Kitty graphics protocol image ID
 ---@field zoom_level number Current zoom level (1.0 = fit)
 ---@field pan_x number Horizontal pan offset in cells
 ---@field pan_y number Vertical pan offset in cells
