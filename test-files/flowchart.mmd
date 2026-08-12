@@ -1,0 +1,12 @@
+flowchart TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug]
+    D --> E[Check logs]
+    E --> F[Fix issue]
+    F --> B
+    C --> G[Deploy]
+    G --> H[Monitor]
+    H --> I{Errors?}
+    I -->|Yes| D
+    I -->|No| J[Done]

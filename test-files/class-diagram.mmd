@@ -1,0 +1,54 @@
+classDiagram
+    class Config {
+        +string mmdr_path
+        +string theme
+        +number debounce_ms
+        +boolean fast_text
+        +setup(opts)
+        +validate(cfg)
+    }
+
+    class Viewer {
+        -number win
+        -number buf
+        +open() win, buf
+        +close()
+        +is_open() boolean
+        +get_dimensions() table
+    }
+
+    class Display {
+        +show(png_path, opts)
+        +clear()
+        +move(x, y)
+    }
+
+    class Kitty {
+        +transmit(path, id) boolean
+        +display(id, row, col, cols, rows)
+        +delete(id)
+        +next_id() number
+    }
+
+    class Navigation {
+        +zoom_in()
+        +zoom_out()
+        +zoom_reset()
+        +pan(dx, dy)
+        +setup_keymaps(buf)
+    }
+
+    class Source {
+        +extract(bufnr) string, string
+    }
+
+    class Render {
+        +render(source, opts, callback)
+    }
+
+    Display --> Kitty
+    Display --> Viewer
+    Navigation --> Display
+    Navigation --> Render
+    Navigation --> Source
+    Render --> Config

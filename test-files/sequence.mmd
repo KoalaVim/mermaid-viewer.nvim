@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant U as User
+    participant N as Neovim
+    participant P as mermaid-viewer
+    participant M as mmdr
+    participant T as Terminal
+
+    U->>N: :MermaidView
+    N->>P: view()
+    P->>P: extract source
+    P->>M: render(source, opts)
+    M-->>P: PNG file
+    P->>T: Kitty transmit
+    P->>T: Kitty display
+    T-->>U: Diagram visible
+
+    U->>P: zoom in (+)
+    P->>M: re-render (higher res)
+    M-->>P: PNG file
+    P->>T: transmit + display
+    T-->>U: Zoomed diagram

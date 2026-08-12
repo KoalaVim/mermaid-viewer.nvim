@@ -1,0 +1,22 @@
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Rendering: :MermaidView
+    Rendering --> Displaying: render complete
+    Rendering --> Idle: render error
+    Displaying --> Viewing: image shown
+
+    state Viewing {
+        [*] --> FitToWindow
+        FitToWindow --> ZoomedIn: zoom_in
+        ZoomedIn --> ZoomedIn: zoom_in (clamped)
+        ZoomedIn --> FitToWindow: zoom_reset
+        ZoomedIn --> ZoomedOut: zoom_out
+        ZoomedOut --> FitToWindow: zoom_out (min 1.0)
+        ZoomedOut --> ZoomedIn: zoom_in
+
+        ZoomedIn --> Panning: pan(dx, dy)
+        Panning --> ZoomedIn: pan complete
+    }
+
+    Viewing --> Rendering: source changed
+    Viewing --> Idle: :MermaidClose / q / Esc

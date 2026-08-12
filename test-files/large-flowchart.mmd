@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph Input
+        A1[.mmd file] --> B1[Full buffer]
+        A2[Markdown] --> B2[Treesitter]
+        A2 --> B3[Line scan]
+        B2 --> C1[Code block]
+        B3 --> C1
+        B1 --> C1
+    end
+
+    subgraph Rendering
+        C1 --> D1[Write temp .mmd]
+        D1 --> D2[vim.system mmdr]
+        D2 --> D3{Exit code?}
+        D3 -->|0| D4[PNG output]
+        D3 -->|!0| D5[Error notification]
+    end
+
+    subgraph Display
+        D4 --> E1[Kitty transmit]
+        E1 --> E2[Base64 encode]
+        E2 --> E3[Chunk 4096 bytes]
+        E3 --> E4[Send APC sequences]
+        E4 --> E5[Kitty display]
+        E5 --> E6[Position at float]
+    end
+
+    subgraph Navigation
+        E6 --> F1{User action}
+        F1 -->|+/-| F2[Zoom]
+        F1 -->|hjkl| F3[Pan]
+        F1 -->|0| F4[Reset]
+        F1 -->|q/Esc| F5[Close]
+        F2 --> G1[Re-render]
+        F4 --> G1
+        G1 --> D1
+        F3 --> G2[Reposition]
+        G2 --> E5
+    end
+
+    subgraph Lifecycle
+        F5 --> H1[Delete image]
+        H1 --> H2[Close float]
+        H2 --> H3[Cleanup temps]
+        H3 --> H4[Clear state]
+    end
