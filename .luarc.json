@@ -1,0 +1,11 @@
+{
+  "runtime": {
+    "version": "Lua 5.1"
+  },
+  "workspace": {
+    "library": [
+      "${3rd}/luv/library"
+    ],
+    "checkThirdParty": false
+  }
+}

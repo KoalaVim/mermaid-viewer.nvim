@@ -1,0 +1,52 @@
+---@alias mermaid_viewer.Theme "default"|"dark"|"forest"|"neutral"|"modern"
+
+---@class mermaid_viewer.FloatOptions
+---@field width? number Percentage of editor width (0.0-1.0)
+---@field height? number Percentage of editor height (0.0-1.0)
+---@field border? string|string[] Border style for the float window
+
+---@class mermaid_viewer.KeyOptions
+---@field zoom_in? string Keymap to zoom in
+---@field zoom_out? string Keymap to zoom out
+---@field zoom_reset? string Keymap to reset zoom
+---@field pan_up? string Keymap to pan up
+---@field pan_down? string Keymap to pan down
+---@field pan_left? string Keymap to pan left
+---@field pan_right? string Keymap to pan right
+---@field close? string[] Keymaps to close the viewer
+
+---@class mermaid_viewer.Options
+---@field mmdr_path? string Path to mmdr binary
+---@field theme? mermaid_viewer.Theme Mermaid theme
+---@field debounce_ms? number Debounce delay for re-renders
+---@field fast_text? boolean Use mmdr --fastText for speed
+---@field float? mermaid_viewer.FloatOptions Floating window options
+---@field keys? mermaid_viewer.KeyOptions Keymap overrides
+---@field auto_update? boolean Auto-update on source change
+---@field zoom_step? number Multiplier per zoom step
+---@field max_zoom? number Maximum zoom level
+---@field pan_step? number Cells to shift per pan action
+
+---@class mermaid_viewer.InternalConfig
+---@field mmdr_path string
+---@field theme mermaid_viewer.Theme
+---@field debounce_ms number
+---@field fast_text boolean
+---@field float { width: number, height: number, border: string|string[] }
+---@field keys { zoom_in: string, zoom_out: string, zoom_reset: string, pan_up: string, pan_down: string, pan_left: string, pan_right: string, close: string[] }
+---@field auto_update boolean
+---@field zoom_step number
+---@field max_zoom number
+---@field pan_step number
+
+---@class mermaid_viewer.ViewerState
+---@field source_buf number Source buffer handle
+---@field float_win number Float window handle
+---@field float_buf number Float buffer handle
+---@field image any image.nvim image object
+---@field zoom_level number Current zoom level (1.0 = fit)
+---@field pan_x number Horizontal pan offset in cells
+---@field pan_y number Vertical pan offset in cells
+---@field temp_files string[] List of temp file paths to clean up
+---@field render_timer any Pending debounce timer
+---@field augroup number Autocmd group id
