@@ -9,8 +9,6 @@ local render = require("mermaid-viewer.render")
 local display = require("mermaid-viewer.display")
 local temp = require("mermaid-viewer.temp")
 
-local PIXELS_PER_CELL = 100
-
 ---@param zoom_level number
 local function rerender(zoom_level)
   local s = state.current
@@ -29,10 +27,8 @@ local function rerender(zoom_level)
     return
   end
 
-  local width_px = math.floor(dims.width * PIXELS_PER_CELL * zoom_level)
-  local height_px = math.floor(dims.height * PIXELS_PER_CELL * zoom_level)
-
-  render.render(src, { width = width_px, height = height_px }, function(render_err, png_path, temp_input)
+  local kitty = require("mermaid-viewer.kitty")
+  render.render(src, kitty.pixel_size(dims.width, dims.height, zoom_level), function(render_err, png_path, temp_input)
     if temp_input then
       temp.track(temp_input)
     end

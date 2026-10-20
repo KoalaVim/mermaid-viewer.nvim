@@ -36,7 +36,8 @@ function M.view()
   local display = require("mermaid-viewer.display")
   local dims = viewer.get_dimensions()
 
-  render.render(src, { width = dims.width * 100, height = dims.height * 100 }, function(render_err, png_path, temp_input)
+  local kitty = require("mermaid-viewer.kitty")
+  render.render(src, kitty.pixel_size(dims.width, dims.height), function(render_err, png_path, temp_input)
     if temp_input then
       temp.track(temp_input)
     end
@@ -68,10 +69,8 @@ function M.view()
         return
       end
 
-      render.render(new_src, {
-        width = math.floor(current_dims.width * 100 * s.zoom_level),
-        height = math.floor(current_dims.height * 100 * s.zoom_level),
-      }, function(re_err, re_path, re_input)
+      local px = kitty.pixel_size(current_dims.width, current_dims.height, s.zoom_level)
+      render.render(new_src, px, function(re_err, re_path, re_input)
         if re_input then
           temp.track(re_input)
         end
