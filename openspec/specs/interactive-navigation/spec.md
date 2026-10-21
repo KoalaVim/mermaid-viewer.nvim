@@ -1,12 +1,12 @@
 # interactive-navigation Specification
 
 ## Purpose
-TBD - created by archiving change mermaid-viewer-plugin. Update Purpose after archive.
+Lets users explore a diagram in the floating viewer by zooming, with sharp re-renders at each level, and by moving around with Neovim's own motions.
 
 ## Requirements
 
 ### Requirement: Zoom in
-The system SHALL support zooming in on the diagram, increasing the visible detail by re-rendering at a higher resolution and displaying a cropped region within the floating window.
+The system SHALL support zooming in on the diagram, increasing the visible detail by re-rendering at a higher resolution and enlarging the displayed diagram within the floating window. The zoom level SHALL NOT exceed the configured maximum, nor the size at which the diagram would exceed 297 cells on either side.
 
 #### Scenario: User zooms in from fit-to-window view
 - **WHEN** the user presses the zoom-in key (default `+` or `=`)
@@ -15,6 +15,10 @@ The system SHALL support zooming in on the diagram, increasing the visible detai
 #### Scenario: Zoom in at maximum level
 - **WHEN** the user presses zoom-in at the maximum zoom level (default 5.0x)
 - **THEN** nothing happens (the zoom level does not exceed the maximum)
+
+#### Scenario: Zoom limited by diagram size in cells
+- **WHEN** one more zoom step would make the diagram wider or taller than 297 cells
+- **THEN** the zoom level is capped at the largest level that fits within 297 cells
 
 ### Requirement: Zoom out
 The system SHALL support zooming out to see more of the diagram.
@@ -34,24 +38,24 @@ The system SHALL support resetting the zoom level back to fit-to-window (1.0x).
 - **WHEN** the user presses the reset key (default `0`)
 - **THEN** the zoom level returns to 1.0x and the entire diagram fits within the float
 
-### Requirement: Pan in four directions
-The system SHALL support panning the viewport in four directions (up, down, left, right) when the diagram is zoomed in beyond the float boundaries.
-
-#### Scenario: Pan right while zoomed in
-- **WHEN** the user presses the pan-right key (default `l` or right arrow) while zoomed in
-- **THEN** the viewport shifts right, revealing more of the diagram to the right
-
-#### Scenario: Pan at diagram edge
-- **WHEN** the user pans in a direction where no more diagram content exists
-- **THEN** the viewport stops at the edge and does not scroll further
-
-#### Scenario: Pan while at fit-to-window zoom
-- **WHEN** the user presses a pan key while at 1.0x zoom (entire diagram visible)
-- **THEN** nothing happens (there is nothing to pan to)
-
 ### Requirement: Configurable navigation keymaps
-The system SHALL allow users to override the default zoom and pan keybindings via the `setup()` configuration.
+The system SHALL allow users to override the default zoom and close keybindings via the `setup()` configuration. Movement inside the viewer uses Neovim's own motions and is not remapped.
 
 #### Scenario: User sets custom keybindings
 - **WHEN** the user configures `keys = { zoom_in = "<C-=>", zoom_out = "<C-->" }` in setup
 - **THEN** the viewer uses `<C-=>` and `<C-->` instead of the defaults
+
+### Requirement: Move around with native motions
+When the diagram is larger than the viewer float, the user SHALL be able to move around it with Neovim's normal scrolling and cursor motions, and the view SHALL stop at the diagram's edges.
+
+#### Scenario: Scroll horizontally while zoomed in
+- **WHEN** the diagram is wider than the float and the user presses `l`, `zl` or `zL`, or scrolls the mouse wheel horizontally
+- **THEN** the view moves right, revealing more of the diagram to the right
+
+#### Scenario: Scroll vertically while zoomed in
+- **WHEN** the diagram is taller than the float and the user presses `j`, `<C-d>`, or scrolls the mouse wheel
+- **THEN** the view moves down, revealing more of the diagram below
+
+#### Scenario: At fit-to-window zoom
+- **WHEN** the whole diagram fits in the float and the user presses a motion key
+- **THEN** the view does not move away from the diagram
