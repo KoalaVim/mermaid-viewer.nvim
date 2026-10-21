@@ -39,11 +39,23 @@ The system SHALL use double buffering when updating a displayed image to avoid f
 - **THEN** the system transmits the new image, switches the display to it, and only then deletes the previous image from the terminal
 
 ### Requirement: Float window configuration
-The floating window SHALL have a configurable border style, size (as percentage of editor dimensions), and position.
+The floating window SHALL be centered and sized to the diagram, capped at a configurable percentage of the editor dimensions, with a configurable border style. A user-supplied `float.win_config` table SHALL be merged over the computed window config whenever the window is opened or resized, so any `nvim_open_win` option (title, footer, z-index, position, size, style, border) can be set.
 
 #### Scenario: User configures custom float size
 - **WHEN** the user sets `float = { width = 0.6, height = 0.6 }` in setup
-- **THEN** the float occupies 60% of the editor width and height, centered
+- **THEN** the float is centered and never exceeds 60% of the editor width and height
+
+#### Scenario: User passes window options
+- **WHEN** the user sets `float = { win_config = { title = " Mermaid ", zindex = 60 } }` and opens the viewer
+- **THEN** the float shows the title " Mermaid " and has z-index 60
+
+#### Scenario: Window options survive zoom
+- **WHEN** the user has set `float.win_config` with a title and a fixed `row`, and zooms in
+- **THEN** the resized float keeps the title and the row
+
+#### Scenario: Fixed window size
+- **WHEN** the user sets `float = { win_config = { width = 100, height = 30 } }`
+- **THEN** the float is 100 by 30 cells and the diagram at 1.0x zoom fits within it
 
 ### Requirement: Reliable delivery to the terminal
 Image data SHALL reach the terminal intact regardless of size. Graphics output SHALL be sent through Neovim's UI channel so it is not truncated or interleaved with screen updates.

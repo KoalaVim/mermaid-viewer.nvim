@@ -4,6 +4,7 @@
 ---@field width? number Percentage of editor width (0.0-1.0)
 ---@field height? number Percentage of editor height (0.0-1.0)
 ---@field border? string|string[] Border style for the float window
+---@field win_config? vim.api.keyset.win_config Passed to nvim_open_win, overriding the computed size, position and style
 
 ---@class mermaid_viewer.KeyOptions
 ---@field zoom_in? string Keymap to zoom in
@@ -37,7 +38,7 @@
 ---@field theme mermaid_viewer.Theme
 ---@field debounce_ms number
 ---@field fast_text boolean
----@field float { width: number, height: number, border: string|string[] }
+---@field float { width: number, height: number, border: string|string[], win_config: vim.api.keyset.win_config }
 ---@field keys { zoom_in: string, zoom_out: string, zoom_reset: string, close: string[] }
 ---@field auto_update boolean
 ---@field zoom_step number

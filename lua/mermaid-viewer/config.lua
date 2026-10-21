@@ -11,11 +11,12 @@ local defaults = {
   debounce_ms = 300,
   ---@type boolean
   fast_text = false,
-  ---@type { width: number, height: number, border: string|string[] }
+  ---@type { width: number, height: number, border: string|string[], win_config: vim.api.keyset.win_config }
   float = {
     width = 0.8,
     height = 0.8,
     border = "rounded",
+    win_config = {},
   },
   ---@type { zoom_in: string, zoom_out: string, zoom_reset: string, close: string[] }
   keys = {
@@ -94,6 +95,7 @@ function M.validate(cfg)
     debounce_ms = { cfg.debounce_ms, "number" },
     fast_text = { cfg.fast_text, "boolean" },
     float = { cfg.float, "table" },
+    ["float.win_config"] = { cfg.float.win_config, "table" },
     keys = { cfg.keys, "table" },
     auto_update = { cfg.auto_update, "boolean" },
     zoom_step = { cfg.zoom_step, "number" },

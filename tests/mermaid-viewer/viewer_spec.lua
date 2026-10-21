@@ -164,6 +164,41 @@ describe("mermaid-viewer viewer", function()
     assert.equals(0, #floats())
   end)
 
+  it("passes float.win_config to nvim_open_win and keeps it across zoom", function()
+    config.setup({
+      debounce_ms = 40,
+      terminal = { placeholders = true },
+      float = { win_config = { title = "diagram", title_pos = "center", zindex = 77, border = "single", row = 1 } },
+    })
+    local s = open(markdown())
+    local cfg = vim.api.nvim_win_get_config(s.win)
+    assert.equals(77, cfg.zindex)
+    assert.equals("center", cfg.title_pos)
+    assert.equals("diagram", cfg.title[1][1])
+    assert.equals(1, cfg.row)
+    local old_id = s.image.id
+    nav.zoom_in()
+    wait_zoom(s, function()
+      return s.image.id ~= old_id
+    end)
+    cfg = vim.api.nvim_win_get_config(s.win)
+    assert.equals(77, cfg.zindex)
+    assert.equals(1, cfg.row)
+    assert.equals("diagram", cfg.title[1][1])
+  end)
+
+  it("sizes the diagram to float.win_config width and height when given", function()
+    config.setup({
+      debounce_ms = 40,
+      terminal = { placeholders = true },
+      float = { win_config = { width = 30, height = 10 } },
+    })
+    local s = open(markdown(WIDE))
+    assert.equals(30, vim.api.nvim_win_get_width(s.win))
+    assert.equals(10, vim.api.nvim_win_get_height(s.win))
+    assert.is_true(s.cols <= 30 and s.rows <= 10)
+  end)
+
   it("zooms in with focus in the float: transmits the new image before deleting the old", function()
     local s = open(markdown())
     local old_id, old_cols, old_rows = s.image.id, s.cols, s.rows

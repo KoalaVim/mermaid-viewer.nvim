@@ -143,6 +143,7 @@ require("mermaid-viewer").setup({
     width = 0.8,            -- max float width as percentage of editor (0.0-1.0)
     height = 0.8,           -- max float height as percentage of editor (0.0-1.0)
     border = "rounded",     -- border style
+    win_config = {},        -- passed to nvim_open_win, overriding the computed config (see below)
   },
 
   keys = {
@@ -161,6 +162,34 @@ require("mermaid-viewer").setup({
   debug = false,            -- send graphics with terminal replies enabled and log them
 })
 ```
+
+### Viewer window
+
+The viewer float is opened with `nvim_open_win`. By default it is centered, sized to the diagram (at most
+`float.width` × `float.height` of the editor), `style = "minimal"`, with `float.border`. Anything in
+`float.win_config` is merged over that config, both when the window opens and when zoom resizes it, so you control
+the window with the regular `:h nvim_open_win()` keys:
+
+```lua
+require("mermaid-viewer").setup({
+  float = {
+    win_config = {
+      title = " Mermaid ",
+      title_pos = "center",
+      footer = " +/- zoom · 0 reset · q close ",
+      footer_pos = "right",
+      zindex = 60,
+      -- pin it instead of centering it:
+      -- relative = "editor", anchor = "NE", row = 1, col = vim.o.columns - 1,
+      -- fixed size in cells; the diagram is fitted to it instead of float.width/height:
+      -- width = 100, height = 30,
+    },
+  },
+})
+```
+
+`width` and `height` in `win_config` are in cells and fix the window size; `float.width` / `float.height` are
+fractions of the editor and only cap the size of a window sized to the diagram.
 
 **Removed options:** `pan_step` and `keys.pan_up`/`pan_down`/`pan_left`/`pan_right` no longer exist; use the native
 motions above. Passing them to `setup()` logs one warning and they are ignored.

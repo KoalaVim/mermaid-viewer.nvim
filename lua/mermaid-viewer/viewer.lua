@@ -68,7 +68,10 @@ end
 ---@return number rows
 function M.max_size()
   local float = config.options.float
-  return math.max(1, math.floor(vim.o.columns * float.width)), math.max(1, math.floor(vim.o.lines * float.height))
+  local user = float.win_config or {}
+  local cols = user.width or math.floor(vim.o.columns * float.width)
+  local rows = user.height or math.floor(vim.o.lines * float.height)
+  return math.max(1, cols), math.max(1, rows)
 end
 
 ---@param aspect number
@@ -87,20 +90,25 @@ function M.zoom_cap(aspect)
   return clamp_zoom(aspect, math.huge)
 end
 
+--- Centered float config for a nw x nh window, with the user's float.win_config merged over it
 ---@param nw number
 ---@param nh number
----@return table
+---@return vim.api.keyset.win_config
 local function geometry(nw, nh)
-  local border = config.options.float.border
+  local float = config.options.float
+  local user = float.win_config or {}
+  local border = user.border or float.border
   local extra = (border == nil or border == "none" or border == "") and 0 or 2
   local avail = vim.o.lines - vim.o.cmdheight
-  return {
+  return vim.tbl_extend("force", {
     relative = "editor",
     width = nw,
     height = nh,
     row = math.max(0, math.floor((avail - nh - extra) / 2)),
     col = math.max(0, math.floor((vim.o.columns - nw - extra) / 2)),
-  }
+    style = "minimal",
+    border = float.border,
+  }, user)
 end
 
 ---@param cols number
@@ -115,10 +123,7 @@ local function create_window(cols, rows)
   vim.bo[buf].swapfile = false
   vim.bo[buf].modifiable = false
 
-  local win_config = geometry(math.min(cols, maxc), math.min(rows, maxr))
-  win_config.style = "minimal"
-  win_config.border = config.options.float.border
-  local win = vim.api.nvim_open_win(buf, true, win_config)
+  local win = vim.api.nvim_open_win(buf, true, geometry(math.min(cols, maxc), math.min(rows, maxr)))
 
   local wo = vim.wo[win]
   wo.wrap = false
@@ -193,7 +198,9 @@ local function show(s, img, key, hash, result, zoom, opts)
 
   write_grid(s, img, cols, rows)
   if not opened then
-    vim.api.nvim_win_set_config(s.win, geometry(nw, nh))
+    local win_config = geometry(nw, nh)
+    win_config.noautocmd = nil -- only valid when opening
+    vim.api.nvim_win_set_config(s.win, win_config)
   end
   local view = view_for(s, cols, rows, nw, nh, center)
   vim.api.nvim_win_call(s.win, function()
