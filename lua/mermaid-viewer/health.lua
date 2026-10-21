@@ -3,10 +3,10 @@ local M = {}
 function M.check()
   vim.health.start("mermaid-viewer")
 
-  if vim.fn.has("nvim-0.10.0") == 1 then
-    vim.health.ok("Neovim >= 0.10.0")
+  if vim.fn.has("nvim-0.12") == 1 then
+    vim.health.ok("Neovim >= 0.12")
   else
-    vim.health.error("mermaid-viewer.nvim requires Neovim >= 0.10.0")
+    vim.health.error("mermaid-viewer.nvim requires Neovim >= 0.12", { "Upgrade Neovim to 0.12 or newer" })
   end
 
   local config = require("mermaid-viewer.config")
@@ -22,22 +22,22 @@ function M.check()
     )
   end
 
-  local term = vim.env.TERM or ""
-  local term_program = vim.env.TERM_PROGRAM or ""
-  local kitty_terms = { "xterm%-kitty", "kitty", "wezterm", "ghostty" }
-  local is_kitty = false
-  for _, pat in ipairs(kitty_terms) do
-    if term:match(pat) or term_program:lower():match(pat) then
-      is_kitty = true
-      break
+  -- supported() folds termguicolors into its answer; report it on its own so the terminal verdict stays accurate
+  if vim.o.termguicolors then
+    vim.health.ok("'termguicolors' is enabled")
+    local supported, reason = require("mermaid-viewer.terminal").supported()
+    if supported then
+      vim.health.ok("Kitty graphics Unicode placeholders supported (" .. reason .. ")")
+    else
+      vim.health.error(
+        "Terminal does not support Kitty graphics Unicode placeholders: " .. reason,
+        { "Use a supported terminal: Kitty, Ghostty, herdr", "Or force it with terminal.placeholders = true in setup()" }
+      )
     end
-  end
-  if is_kitty then
-    vim.health.ok("Kitty graphics protocol supported (" .. (term_program ~= "" and term_program or term) .. ")")
   else
-    vim.health.warn(
-      "Terminal may not support Kitty graphics protocol",
-      { "Use Kitty, WezTerm, or Ghostty terminal" }
+    vim.health.error(
+      "'termguicolors' is off; placeholders encode image ids in colors",
+      { "Set vim.o.termguicolors = true" }
     )
   end
 

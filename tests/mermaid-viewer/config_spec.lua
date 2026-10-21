@@ -17,17 +17,34 @@ describe("mermaid-viewer.config", function()
     assert.equals(true, config.options.auto_update)
     assert.equals(1.5, config.options.zoom_step)
     assert.equals(5.0, config.options.max_zoom)
-    assert.equals(5, config.options.pan_step)
+    assert.is_nil(config.options.pan_step)
+  end)
+
+  it("has debug off and terminal detection on auto by default", function()
+    assert.equals(false, config.options.debug)
+    assert.is_nil(config.options.terminal.placeholders)
+  end)
+
+  it("accepts debug and terminal overrides", function()
+    config.setup({ debug = true, terminal = { placeholders = false } })
+    assert.equals(true, config.options.debug)
+    assert.equals(false, config.options.terminal.placeholders)
+  end)
+
+  it("rejects invalid debug/terminal values", function()
+    assert.has_error(function()
+      config.setup({ debug = "yes" })
+    end)
+    assert.has_error(function()
+      config.setup({ terminal = { placeholders = "yes" } })
+    end)
   end)
 
   it("has sensible default keymaps", function()
     assert.equals("+", config.options.keys.zoom_in)
     assert.equals("-", config.options.keys.zoom_out)
     assert.equals("0", config.options.keys.zoom_reset)
-    assert.equals("k", config.options.keys.pan_up)
-    assert.equals("j", config.options.keys.pan_down)
-    assert.equals("h", config.options.keys.pan_left)
-    assert.equals("l", config.options.keys.pan_right)
+    assert.is_nil(config.options.keys.pan_up)
     assert.same({ "q", "<Esc>" }, config.options.keys.close)
   end)
 
@@ -83,16 +100,11 @@ describe("mermaid-viewer.config", function()
         zoom_in = "=",
         zoom_out = "_",
         zoom_reset = "r",
-        pan_up = "K",
-        pan_down = "J",
-        pan_left = "H",
-        pan_right = "L",
         close = { "<C-c>" },
       },
       auto_update = false,
       zoom_step = 2,
       max_zoom = 10,
-      pan_step = 1,
     })
 
     assert.equals("/usr/local/bin/mmdr", config.options.mmdr_path)
@@ -103,7 +115,44 @@ describe("mermaid-viewer.config", function()
     assert.equals(false, config.options.auto_update)
     assert.equals(2, config.options.zoom_step)
     assert.equals(10, config.options.max_zoom)
-    assert.equals(1, config.options.pan_step)
+  end)
+
+  describe("removed pan options", function()
+    local real_notify, notes
+
+    before_each(function()
+      real_notify = vim.notify
+      notes = {}
+      vim.notify = function(msg, level)
+        notes[#notes + 1] = { msg = msg, level = level }
+      end
+    end)
+
+    after_each(function()
+      vim.notify = real_notify
+    end)
+
+    it("warns once naming native motions, ignores the options and keeps the rest", function()
+      config.setup({ pan_step = 3, keys = { pan_up = "K", pan_left = "H", zoom_in = "=" } })
+      config.setup({ pan_step = 3, keys = { pan_down = "J" } })
+      assert.equals(1, #notes)
+      assert.equals(vim.log.levels.WARN, notes[1].level)
+      assert.truthy(notes[1].msg:find("pan_step", 1, true))
+      assert.truthy(notes[1].msg:find("keys.pan_up", 1, true))
+      assert.truthy(notes[1].msg:find("native motions", 1, true))
+      assert.is_nil(config.options.pan_step)
+      assert.is_nil(config.options.keys.pan_up)
+      assert.is_nil(config.options.keys.pan_down)
+    end)
+
+    it("does not warn without removed options and does not mutate the passed table", function()
+      config.setup({ keys = { zoom_in = "=" } })
+      assert.equals(0, #notes)
+      local opts = { pan_step = 2, keys = { pan_right = "L" } }
+      config.setup(opts)
+      assert.equals(2, opts.pan_step)
+      assert.equals("L", opts.keys.pan_right)
+    end)
   end)
 
   describe("validation", function()
@@ -158,12 +207,6 @@ describe("mermaid-viewer.config", function()
     it("rejects a non-number max_zoom", function()
       assert.has_error(function()
         config.setup({ max_zoom = "5" })
-      end)
-    end)
-
-    it("rejects a non-number pan_step", function()
-      assert.has_error(function()
-        config.setup({ pan_step = "5" })
       end)
     end)
 

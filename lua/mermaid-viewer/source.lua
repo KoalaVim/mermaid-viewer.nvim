@@ -12,92 +12,138 @@ local function extract_full_buffer(bufnr)
   return table.concat(lines, "\n"), nil
 end
 
----@param bufnr number
----@return string|nil source
----@return string|nil error
-local function extract_treesitter(bufnr)
-  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "markdown")
-  if not ok or not parser then
-    return nil, nil
+---@class mermaid_viewer.Block
+---@field start_row number 0-based row of the opening fence
+---@field end_row number 0-based row of the closing fence
+---@field content_start number 0-based first content row (== end_row for an empty block)
+---@field content_end number 0-based last content row, inclusive (== start_row for an empty block)
+---@field content string block source, lines joined with "\n"
+---@field info string text after the opening ``` (e.g. "mermaid {theme=dark}")
+
+---@param lines string[]
+---@param start_row number
+---@param end_row number
+---@param info string
+---@return mermaid_viewer.Block
+local function make_block(lines, start_row, end_row, info)
+  local content_lines = {}
+  for r = start_row + 1, end_row - 1 do
+    content_lines[#content_lines + 1] = lines[r + 1]
   end
+  return {
+    start_row = start_row,
+    end_row = end_row,
+    content_start = start_row + 1,
+    content_end = end_row - 1,
+    content = table.concat(content_lines, "\n"),
+    info = info,
+  }
+end
 
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local cursor_row = cursor[1] - 1
-
-  local trees = parser:parse()
-  if not trees or #trees == 0 then
-    return nil, nil
-  end
-
-  local query = vim.treesitter.query.parse("markdown", [[
-    (fenced_code_block
-      (info_string (language) @lang)
-      (code_fence_content) @content)
-  ]])
-
-  for _, tree in ipairs(trees) do
-    for id, node, _ in query:iter_captures(tree:root(), bufnr, 0, -1) do
-      local name = query.captures[id]
-      if name == "lang" then
-        local lang_text = vim.treesitter.get_node_text(node, bufnr)
-        if lang_text:match("^mermaid") then
-          local parent = node:parent():parent()
-          local start_row, _, end_row, _ = parent:range()
-          if cursor_row >= start_row and cursor_row <= end_row then
-            local sibling = node:parent():next_named_sibling()
-            while sibling do
-              if sibling:type() == "code_fence_content" then
-                local text = vim.treesitter.get_node_text(sibling, bufnr)
-                text = text:gsub("\n$", "")
-                return text, nil
-              end
-              sibling = sibling:next_named_sibling()
-            end
-          end
-        end
-      end
-    end
-  end
-
-  return nil, "No mermaid diagram found at cursor"
+---@param info string
+---@return boolean
+local function is_mermaid_info(info)
+  return info:match("^mermaid$") ~= nil or info:match("^mermaid[%s{]") ~= nil
 end
 
 ---@param bufnr number
+---@param lines string[]
+---@return mermaid_viewer.Block[]|nil nil when treesitter is unavailable
+local function blocks_treesitter(bufnr, lines)
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "markdown")
+  if not ok or not parser then
+    return nil
+  end
+  local trees = parser:parse()
+  if not trees or #trees == 0 then
+    return nil
+  end
+
+  local query = vim.treesitter.query.parse("markdown", "(fenced_code_block) @block")
+  local blocks = {}
+  for _, tree in ipairs(trees) do
+    for _, node in query:iter_captures(tree:root(), bufnr, 0, -1) do
+      local lang, delims = nil, {}
+      for child in node:iter_children() do
+        local t = child:type()
+        if t == "info_string" then
+          lang = vim.treesitter.get_node_text(child, bufnr)
+        elseif t == "fenced_code_block_delimiter" then
+          delims[#delims + 1] = child
+        end
+      end
+      -- an unterminated block only has its opening delimiter
+      if lang and #delims >= 2 and is_mermaid_info(vim.trim(lang)) then
+        local start_row = delims[1]:range()
+        local end_row = delims[#delims]:range()
+        blocks[#blocks + 1] = make_block(lines, start_row, end_row, vim.trim(lang))
+      end
+    end
+  end
+  table.sort(blocks, function(a, b)
+    return a.start_row < b.start_row
+  end)
+  return blocks
+end
+
+---@param lines string[]
+---@return mermaid_viewer.Block[]
+local function blocks_line_scan(lines)
+  local blocks = {}
+  local open_row, open_info = nil, nil
+  for i, line in ipairs(lines) do
+    if open_row == nil then
+      local info = line:match("^```(mermaid.*)$")
+      if info and is_mermaid_info(vim.trim(info)) then
+        open_row, open_info = i - 1, vim.trim(info)
+      end
+    elseif line:match("^```%s*$") then
+      blocks[#blocks + 1] = make_block(lines, open_row, i - 1, open_info)
+      open_row = nil
+    end
+  end
+  return blocks
+end
+
+--- All terminated ```mermaid fenced blocks of a markdown buffer, in document order.
+--- Uses the treesitter markdown parser, falling back to a line scan. Other filetypes yield no blocks.
+---@param bufnr number Buffer handle (0 for current)
+---@return mermaid_viewer.Block[]
+function M.blocks(bufnr)
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  if vim.bo[bufnr].filetype ~= "markdown" then
+    return {}
+  end
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  return blocks_treesitter(bufnr, lines) or blocks_line_scan(lines)
+end
+
+--- The block whose lines (fences included) contain `row`.
+---@param bufnr number
+---@param row number 0-based
+---@return mermaid_viewer.Block|nil
+function M.block_at(bufnr, row)
+  for _, block in ipairs(M.blocks(bufnr)) do
+    if row >= block.start_row and row <= block.end_row then
+      return block
+    end
+  end
+  return nil
+end
+
+--- Extract the source of the block currently held by a blocks.lua anchor.
+---@param bufnr number
+---@param anchor_id number extmark id from mermaid-viewer.blocks
 ---@return string|nil source
 ---@return string|nil error
-local function extract_line_scan(bufnr)
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local cursor_line = cursor[1]
-
-  ---@type { start_line: number, end_line: number }[]
-  local blocks = {}
-  local current_start = nil
-
-  for i, line in ipairs(lines) do
-    if current_start == nil then
-      if line:match("^```mermaid") then
-        current_start = i
-      end
-    else
-      if line:match("^```%s*$") then
-        table.insert(blocks, { start_line = current_start, end_line = i })
-        current_start = nil
-      end
-    end
+function M.extract_anchor(bufnr, anchor_id)
+  local block = require("mermaid-viewer.blocks").get(bufnr, anchor_id)
+  if not block then
+    return nil, "Mermaid block no longer exists"
   end
-
-  for _, block in ipairs(blocks) do
-    if cursor_line >= block.start_line and cursor_line <= block.end_line then
-      local content_lines = {}
-      for i = block.start_line + 1, block.end_line - 1 do
-        table.insert(content_lines, lines[i])
-      end
-      return table.concat(content_lines, "\n"), nil
-    end
-  end
-
-  return nil, "No mermaid diagram found at cursor"
+  return block.content, nil
 end
 
 --- Extract mermaid source from the given buffer.
@@ -123,16 +169,11 @@ function M.extract(bufnr)
   end
 
   if ft == "markdown" then
-    local source, err = extract_treesitter(bufnr)
-    if source then
-      return source, nil
+    local block = M.block_at(bufnr, vim.api.nvim_win_get_cursor(0)[1] - 1)
+    if block then
+      return block.content, nil
     end
-    -- err is nil when treesitter wasn't available, fall through to line scan
-    -- err is non-nil when treesitter worked but found no block at cursor
-    if err then
-      return nil, err
-    end
-    return extract_line_scan(bufnr)
+    return nil, "No mermaid diagram found at cursor"
   end
 
   return nil, "Unsupported filetype"

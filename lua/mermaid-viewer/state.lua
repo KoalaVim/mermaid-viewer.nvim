@@ -4,24 +4,15 @@ local M = {}
 ---@type mermaid_viewer.ViewerState|nil
 M.current = nil
 
----@param source_buf number
----@param float_win number
----@param float_buf number
+--- The viewer whose first render is in flight (the float opens only after it succeeds)
+---@type mermaid_viewer.ViewerState|nil
+M.opening = nil
+
+---@param s mermaid_viewer.ViewerState
 ---@return mermaid_viewer.ViewerState
-function M.create(source_buf, float_win, float_buf)
-  M.current = {
-    source_buf = source_buf,
-    float_win = float_win,
-    float_buf = float_buf,
-    image = nil,
-    zoom_level = 1.0,
-    pan_x = 0,
-    pan_y = 0,
-    temp_files = {},
-    render_timer = nil,
-    augroup = 0,
-  }
-  return M.current
+function M.set(s)
+  M.current = s
+  return s
 end
 
 function M.clear()

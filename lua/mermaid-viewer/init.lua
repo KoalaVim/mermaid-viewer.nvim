@@ -1,117 +1,189 @@
 ---@class mermaid_viewer
 local M = {}
 
+local NOTIFY_OPTS = { title = "mermaid-viewer" }
+
+---@param msg string
+---@param level? number
+local function notify(msg, level)
+  vim.notify(msg, level or vim.log.levels.ERROR, NOTIFY_OPTS)
+end
+
 ---@param opts? mermaid_viewer.Options
 function M.setup(opts)
   require("mermaid-viewer.config").setup(opts)
 end
 
-function M.view()
-  local state = require("mermaid-viewer.state")
-  if state.is_active() then
-    return
-  end
-
+--- Bind the viewer to the diagram under the cursor (markdown) or the whole buffer (.mmd / mermaid)
+---@param buf number
+---@return mermaid_viewer.ViewerSource|nil
+---@return string|nil err
+local function resolve_source(buf)
   local source = require("mermaid-viewer.source")
-  local src, err = source.extract(0)
-  if not src then
-    vim.notify(err or "No mermaid diagram found", vim.log.levels.ERROR, { title = "mermaid-viewer" })
-    return
+  local viewer = require("mermaid-viewer.viewer")
+  local ft = vim.bo[buf].filetype
+
+  if ft == "markdown" then
+    local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+    local block
+    -- the inline module also resolves the cursor sitting on a diagram or collapse marker
+    local ok, inline = pcall(require, "mermaid-viewer.inline")
+    if ok and type(inline.block_at) == "function" then
+      local id = inline.block_at(buf, row)
+      if id then
+        block = require("mermaid-viewer.blocks").get(buf, id)
+      end
+    end
+    block = block or source.block_at(buf, row)
+    if not block then
+      return nil, "No mermaid diagram found at cursor"
+    end
+    return { buf = buf, mark = viewer.anchor(buf, block.start_row) }
   end
 
-  local source_buf = vim.api.nvim_get_current_buf()
+  if ft == "mermaid" or vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":e") == "mmd" then
+    local text, err = source.extract(buf)
+    if not text then
+      return nil, err
+    end
+    return { buf = buf }
+  end
+  return nil, "No mermaid diagram found"
+end
 
-  local temp = require("mermaid-viewer.temp")
-  temp.setup_exit_cleanup()
-
+---@param s mermaid_viewer.ViewerState
+local function on_open(s)
+  local state = require("mermaid-viewer.state")
   local viewer = require("mermaid-viewer.viewer")
-  local win, buf = viewer.open()
-
-  local s = state.create(source_buf, win, buf)
-
-  local navigation = require("mermaid-viewer.navigation")
-  navigation.setup_keymaps(buf)
-
-  local render = require("mermaid-viewer.render")
-  local display = require("mermaid-viewer.display")
-  local dims = viewer.get_dimensions()
-
-  local kitty = require("mermaid-viewer.kitty")
-  render.render(src, kitty.pixel_size(dims.width, dims.height), function(render_err, png_path, temp_input)
-    if temp_input then
-      temp.track(temp_input)
-    end
-    if render_err then
-      vim.notify(render_err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
-      return
-    end
-    if png_path then
-      temp.track(png_path)
-      display.show(png_path)
-    end
-  end)
-
   local config = require("mermaid-viewer.config")
+  state.opening = nil
+  state.set(s)
+
+  require("mermaid-viewer.navigation").setup_keymaps(s.buf)
+  require("mermaid-viewer.temp").setup_exit_cleanup()
+
+  local group = vim.api.nvim_create_augroup("mermaid_viewer_float", { clear = true })
+  s.group = group
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = group,
+    pattern = tostring(s.win),
+    callback = function()
+      M.close(true)
+    end,
+  })
+  vim.api.nvim_create_autocmd("WinScrolled", {
+    group = group,
+    pattern = tostring(s.win),
+    callback = function()
+      viewer.clamp_view(s)
+    end,
+  })
+  vim.api.nvim_create_autocmd({ "BufWipeout", "BufDelete" }, {
+    group = group,
+    buffer = s.source.buf,
+    callback = function()
+      M.close()
+    end,
+  })
+  vim.api.nvim_create_autocmd("VimLeavePre", {
+    group = group,
+    callback = function()
+      M.close()
+    end,
+  })
+
   if config.options.auto_update then
-    local debounce = require("mermaid-viewer.debounce")
-    s.augroup = debounce.watch(source_buf, function()
-      if not state.is_active() then
+    local cache = require("mermaid-viewer.cache")
+    s.augroup = require("mermaid-viewer.debounce").watch(s.source.buf, function()
+      if s.closed then
         return
       end
-
-      local new_src = source.extract(s.source_buf)
-      if not new_src then
+      local text = viewer.source_text(s.source)
+      if text and cache.hash(text) == s.hash then
         return
       end
-
-      local current_dims = viewer.get_dimensions()
-      if not current_dims then
-        return
-      end
-
-      local px = kitty.pixel_size(current_dims.width, current_dims.height, s.zoom_level)
-      render.render(new_src, px, function(re_err, re_path, re_input)
-        if re_input then
-          temp.track(re_input)
-        end
-        if re_err then
-          return
-        end
-        if re_path then
-          temp.track(re_path)
-          display.show(re_path, {
-            width = math.floor(current_dims.width * s.zoom_level),
-            height = math.floor(current_dims.height * s.zoom_level),
-          })
-        end
-      end)
-    end)
+      viewer.refresh(s, {
+        on_missing = function(err)
+          M.close()
+          notify(err .. "; viewer closed", vim.log.levels.WARN)
+        end,
+      })
+    end, "viewer")
   end
 end
 
-function M.close()
+function M.view()
   local state = require("mermaid-viewer.state")
-  if not state.is_active() then
+  if state.is_active() or state.opening then
     return
   end
 
+  local viewer = require("mermaid-viewer.viewer")
+  local src, err = resolve_source(vim.api.nvim_get_current_buf())
+  if not src then
+    notify(err or "No mermaid diagram found")
+    return
+  end
+
+  ---@type mermaid_viewer.ViewerState
+  local s = {
+    source = src,
+    aspect = 1,
+    cols = 0,
+    rows = 0,
+    zoom = 1.0,
+    zoom_req = 1.0,
+    gen = 0,
+    closed = false,
+  }
+  state.opening = s
+
+  local function fail(msg)
+    if state.opening == s then
+      state.opening = nil
+    end
+    s.closed = true
+    viewer.release_anchor(src)
+    notify(msg)
+  end
+
+  viewer.refresh(s, { on_open = on_open, on_missing = fail, on_error = fail })
+end
+
+--- Close the viewer: delete its images, stop auto-update, clear state. Also runs when the float is closed by
+--- other means (`:q`, `<C-w>c`).
+---@param from_win_closed? boolean the float window is already going away
+function M.close(from_win_closed)
+  local state = require("mermaid-viewer.state")
+  if state.opening then
+    state.opening.closed = true
+    state.opening = nil
+  end
   local s = state.current
+  if not s then
+    return
+  end
+  state.clear()
+  s.closed = true
 
-  local display = require("mermaid-viewer.display")
-  display.clear()
-
-  if s.augroup ~= 0 then
-    local debounce = require("mermaid-viewer.debounce")
-    debounce.stop(s.augroup)
+  if s.augroup then
+    require("mermaid-viewer.debounce").stop(s.augroup)
+  end
+  if s.group then
+    pcall(vim.api.nvim_del_augroup_by_id, s.group)
+  end
+  if s.key then
+    require("mermaid-viewer.registry").release(s.key)
+    s.key, s.image = nil, nil
   end
 
   local viewer = require("mermaid-viewer.viewer")
-  viewer.close()
-
-  local temp = require("mermaid-viewer.temp")
-  temp.cleanup()
-
-  state.clear()
+  viewer.release_anchor(s.source)
+  if from_win_closed then
+    s.win = nil
+  else
+    viewer.close_window(s)
+  end
 end
 
 function M.toggle()

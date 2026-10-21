@@ -9,11 +9,14 @@
 ---@field zoom_in? string Keymap to zoom in
 ---@field zoom_out? string Keymap to zoom out
 ---@field zoom_reset? string Keymap to reset zoom
----@field pan_up? string Keymap to pan up
----@field pan_down? string Keymap to pan down
----@field pan_left? string Keymap to pan left
----@field pan_right? string Keymap to pan right
 ---@field close? string[] Keymaps to close the viewer
+
+---@class mermaid_viewer.TerminalOptions
+---@field placeholders? boolean Override Unicode placeholder support detection (nil = detect from TERM_PROGRAM/TERM)
+
+---@class mermaid_viewer.InlineOptions
+---@field enabled? boolean Render mermaid blocks inline in markdown buffers (toggle per buffer with :MermaidInline)
+---@field height? number Inline diagram height in rows; width follows the aspect ratio
 
 ---@class mermaid_viewer.Options
 ---@field mmdr_path? string Path to mmdr binary
@@ -25,7 +28,9 @@
 ---@field auto_update? boolean Auto-update on source change
 ---@field zoom_step? number Multiplier per zoom step
 ---@field max_zoom? number Maximum zoom level
----@field pan_step? number Cells to shift per pan action
+---@field debug? boolean Send graphics with terminal replies enabled and log them (vim.notify at DEBUG level)
+---@field terminal? mermaid_viewer.TerminalOptions Terminal capability overrides
+---@field inline? mermaid_viewer.InlineOptions Inline rendering options
 
 ---@class mermaid_viewer.InternalConfig
 ---@field mmdr_path string
@@ -33,20 +38,31 @@
 ---@field debounce_ms number
 ---@field fast_text boolean
 ---@field float { width: number, height: number, border: string|string[] }
----@field keys { zoom_in: string, zoom_out: string, zoom_reset: string, pan_up: string, pan_down: string, pan_left: string, pan_right: string, close: string[] }
+---@field keys { zoom_in: string, zoom_out: string, zoom_reset: string, close: string[] }
 ---@field auto_update boolean
 ---@field zoom_step number
 ---@field max_zoom number
----@field pan_step number
+---@field debug boolean
+---@field terminal { placeholders: boolean|nil }
+---@field inline { enabled: boolean, height: number }
+
+---@class mermaid_viewer.ViewerSource
+---@field buf number Source buffer handle
+---@field mark? number Anchor extmark on the block's opening fence (nil = the whole buffer is the diagram)
 
 ---@class mermaid_viewer.ViewerState
----@field source_buf number Source buffer handle
----@field float_win number Float window handle
----@field float_buf number Float buffer handle
----@field image number|nil Kitty graphics protocol image ID
----@field zoom_level number Current zoom level (1.0 = fit)
----@field pan_x number Horizontal pan offset in cells
----@field pan_y number Vertical pan offset in cells
----@field temp_files string[] List of temp file paths to clean up
----@field render_timer any Pending debounce timer
----@field augroup number Autocmd group id
+---@field source mermaid_viewer.ViewerSource
+---@field win number Float window handle
+---@field buf number Float buffer handle
+---@field image mermaid_viewer.Image|nil Image currently displayed (holds one registry reference)
+---@field hash string|nil Hash of the displayed source
+---@field aspect number Diagram width / height
+---@field cols number Displayed grid columns
+---@field rows number Displayed grid rows
+---@field zoom number Displayed zoom level (1.0 = fit)
+---@field zoom_req number Requested zoom level (zoom steps start from it)
+---@field gen number Render generation; results of older requests are dropped
+---@field augroup number|nil Autocmd group id of the auto-update watcher
+---@field group number|nil Autocmd group id of the float lifecycle autocmds
+---@field key string|nil Registry key of the displayed image
+---@field closed boolean

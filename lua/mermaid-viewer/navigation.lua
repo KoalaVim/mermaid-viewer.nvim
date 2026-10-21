@@ -4,114 +4,70 @@ local M = {}
 local config = require("mermaid-viewer.config")
 local state = require("mermaid-viewer.state")
 local viewer = require("mermaid-viewer.viewer")
-local source = require("mermaid-viewer.source")
-local render = require("mermaid-viewer.render")
-local display = require("mermaid-viewer.display")
-local temp = require("mermaid-viewer.temp")
 
----@param zoom_level number
-local function rerender(zoom_level)
+local EPS = 1e-6
+
+---@param zoom number
+local function zoom_to(zoom)
   local s = state.current
   if not s then
     return
   end
-
-  local dims = viewer.get_dimensions()
-  if not dims then
-    return
-  end
-
-  local src, err = source.extract(s.source_buf)
-  if not src then
-    vim.notify(err or "Failed to extract mermaid source", vim.log.levels.ERROR, { title = "mermaid-viewer" })
-    return
-  end
-
-  local kitty = require("mermaid-viewer.kitty")
-  render.render(src, kitty.pixel_size(dims.width, dims.height, zoom_level), function(render_err, png_path, temp_input)
-    if temp_input then
-      temp.track(temp_input)
-    end
-    if render_err then
-      vim.notify(render_err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
-      return
-    end
-    if png_path then
-      temp.track(png_path)
-      display.show(png_path, {
-        width = math.floor(dims.width * zoom_level),
-        height = math.floor(dims.height * zoom_level),
-      })
-    end
-  end)
+  viewer.refresh(s, {
+    zoom = zoom,
+    on_error = function(err)
+      vim.notify(err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
+    end,
+    on_missing = function(err)
+      vim.notify(err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
+    end,
+  })
 end
 
---- Zoom in one step. Re-renders at higher resolution.
+--- Zoom in one step, up to the configured maximum and the 297-cell grid cap
 function M.zoom_in()
   local s = state.current
   if not s then
     return
   end
-
-  local opt = config.options
-  s.zoom_level = math.min(s.zoom_level * opt.zoom_step, opt.max_zoom)
-  rerender(s.zoom_level)
+  local target = math.min(s.zoom_req * config.options.zoom_step, viewer.zoom_cap(s.aspect))
+  if target > s.zoom_req + EPS then
+    zoom_to(target)
+  end
 end
 
---- Zoom out one step. Re-renders at lower resolution.
 function M.zoom_out()
   local s = state.current
   if not s then
     return
   end
-
-  local opt = config.options
-  s.zoom_level = math.max(s.zoom_level / opt.zoom_step, 1.0)
-  rerender(s.zoom_level)
+  local target = math.max(s.zoom_req / config.options.zoom_step, 1.0)
+  if target < s.zoom_req - EPS then
+    zoom_to(target)
+  end
 end
 
---- Reset zoom to 1.0x (fit-to-window).
+--- Back to fit-to-window with the view at the top-left
 function M.zoom_reset()
   local s = state.current
   if not s then
     return
   end
-
-  s.zoom_level = 1.0
-  s.pan_x = 0
-  s.pan_y = 0
-  rerender(s.zoom_level)
-end
-
---- Pan in a direction.
----@param dx number Horizontal cell delta (positive = right)
----@param dy number Vertical cell delta (positive = down)
-function M.pan(dx, dy)
-  local s = state.current
-  if not s then
+  if s.zoom_req <= 1.0 + EPS and s.zoom <= 1.0 + EPS then
+    vim.api.nvim_win_call(s.win, function()
+      vim.fn.winrestview({ topline = 1, leftcol = 0, lnum = 1, col = 0, curswant = 0 })
+    end)
     return
   end
-
-  local dims = viewer.get_dimensions()
-  if not dims then
-    return
-  end
-
-  local opt = config.options
-  local display_width = math.floor(dims.width * s.zoom_level)
-  local display_height = math.floor(dims.height * s.zoom_level)
-
-  s.pan_x = s.pan_x + dx * opt.pan_step
-  s.pan_y = s.pan_y + dy * opt.pan_step
-
-  -- Clamp so the image can't be panned past its edges
-  s.pan_x = math.max(-(display_width - dims.width), math.min(0, s.pan_x))
-  s.pan_y = math.max(-(display_height - dims.height), math.min(0, s.pan_y))
-
-  display.move(s.pan_x, s.pan_y)
+  viewer.refresh(s, {
+    reset = true,
+    on_error = function(err)
+      vim.notify(err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
+    end,
+  })
 end
 
---- Set up keymaps on the given float buffer.
+--- Zoom and close keymaps on the float buffer. Movement uses native motions.
 ---@param float_buf number Buffer handle
 function M.setup_keymaps(float_buf)
   local keys = config.options.keys
@@ -121,14 +77,15 @@ function M.setup_keymaps(float_buf)
   end
 
   map(keys.zoom_in, M.zoom_in)
+  if keys.zoom_in == "+" then
+    map("=", M.zoom_in)
+  end
   map(keys.zoom_out, M.zoom_out)
   map(keys.zoom_reset, M.zoom_reset)
-  map(keys.pan_up, function() M.pan(0, -1) end)
-  map(keys.pan_down, function() M.pan(0, 1) end)
-  map(keys.pan_left, function() M.pan(-1, 0) end)
-  map(keys.pan_right, function() M.pan(1, 0) end)
   for _, key in ipairs(keys.close) do
-    map(key, function() require("mermaid-viewer").close() end)
+    map(key, function()
+      require("mermaid-viewer").close()
+    end)
   end
 end
 

@@ -5,9 +5,11 @@ local config = require("mermaid-viewer.config")
 
 ---@param bufnr number Buffer to watch
 ---@param on_change fun() Callback to invoke after debounce
+---@param name? string Group name suffix, so independent watchers on one buffer don't replace each other
 ---@return number augroup The autocmd group id (for cleanup)
-function M.watch(bufnr, on_change)
-  local augroup = vim.api.nvim_create_augroup("mermaid_viewer_debounce_" .. bufnr, { clear = true })
+function M.watch(bufnr, on_change, name)
+  local group_name = "mermaid_viewer_debounce_" .. (name and (name .. "_") or "") .. bufnr
+  local augroup = vim.api.nvim_create_augroup(group_name, { clear = true })
   ---@type uv_timer_t|nil
   local timer = nil
 
