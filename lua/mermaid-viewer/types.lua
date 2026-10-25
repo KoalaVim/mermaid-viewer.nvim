@@ -17,6 +17,7 @@
 
 ---@class mermaid_viewer.InlineOptions
 ---@field enabled? boolean Render mermaid blocks inline in markdown buffers (toggle per buffer with :MermaidInline)
+---@field collapse? boolean Collapse each block once its diagram has rendered
 ---@field scale? number Diagram size relative to the editor font (1.0 = diagram text about as large as buffer text)
 ---@field max_width? number Max width: <= 1 is a fraction of the window's text width, > 1 is cells
 ---@field max_height? number Max height: <= 1 is a fraction of the window height, > 1 is rows
@@ -47,7 +48,7 @@
 ---@field max_zoom number
 ---@field debug boolean
 ---@field terminal { placeholders: boolean|nil }
----@field inline { enabled: boolean, scale: number, max_width: number, max_height: number }
+---@field inline { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
 
 ---@class mermaid_viewer.ViewerSource
 ---@field buf number Source buffer handle

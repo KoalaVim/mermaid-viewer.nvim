@@ -37,9 +37,10 @@ local defaults = {
   terminal = {
     placeholders = nil,
   },
-  ---@type { enabled: boolean, scale: number, max_width: number, max_height: number }
+  ---@type { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
   inline = {
     enabled = true,
+    collapse = true,
     scale = 1.0,
     max_width = 1.0,
     max_height = 40,
@@ -115,6 +116,7 @@ function M.validate(cfg)
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },
     inline = { cfg.inline, "table" },
     ["inline.enabled"] = { cfg.inline.enabled, "boolean" },
+    ["inline.collapse"] = { cfg.inline.collapse, "boolean" },
     ["inline.scale"] = { cfg.inline.scale, "number" },
     ["inline.max_width"] = { cfg.inline.max_width, "number" },
     ["inline.max_height"] = { cfg.inline.max_height, "number" },

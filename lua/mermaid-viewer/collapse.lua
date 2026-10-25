@@ -10,6 +10,7 @@ local ns = vim.api.nvim_create_namespace("mermaid_viewer_collapse")
 ---@field collapsed table<number, boolean> anchor id -> user wants it collapsed
 ---@field expanded table<number, boolean> anchor id -> expanded temporarily for editing
 ---@field marks table<number, number> anchor id -> conceal extmark id
+---@field auto table<number, boolean> anchor id -> already collapsed by inline.collapse (only happens once)
 ---@field saved table<number, { conceallevel?: number, concealcursor?: string }> window -> options to restore
 
 ---@type table<number, mermaid_viewer.CollapseState>
@@ -21,7 +22,7 @@ local EDIT_MODES = "[iRvVsS\22\19]"
 ---@return mermaid_viewer.CollapseState
 local function state_for(buf)
   if not states[buf] then
-    states[buf] = { collapsed = {}, expanded = {}, marks = {}, saved = {} }
+    states[buf] = { collapsed = {}, expanded = {}, marks = {}, saved = {}, auto = {} }
   end
   return states[buf]
 end
@@ -156,6 +157,7 @@ function M.forget(buf, id)
   st.marks[id] = nil
   st.collapsed[id] = nil
   st.expanded[id] = nil
+  st.auto[id] = nil
 end
 
 --- Remove all collapse state of a buffer and restore window options
@@ -253,6 +255,29 @@ local function ensure_autocmds()
       end
     end,
   })
+end
+
+--- Collapse a block on its first successful render (inline.collapse). Only once per block, so a block the user
+--- expanded stays expanded. With the cursor in the block it stays open until the cursor leaves, like a block
+--- expanded for editing.
+---@param buf number
+---@param id number
+---@return boolean collapsed false when the block was auto-collapsed before
+function M.auto(buf, id)
+  local st = state_for(buf)
+  if st.auto[id] then
+    return false
+  end
+  ensure_autocmds()
+  st.auto[id] = true
+  st.collapsed[id] = true
+  if vim.api.nvim_get_current_buf() == buf then
+    local row = vim.api.nvim_win_get_cursor(0)[1] - 1
+    if require("mermaid-viewer.inline").block_at(buf, row) == id then
+      st.expanded[id] = true
+    end
+  end
+  return true
 end
 
 --- Toggle collapse of the block at `row` (inside the block, on its fences, or on the row its diagram/marker hangs

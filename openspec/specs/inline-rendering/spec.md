@@ -104,3 +104,18 @@ A collapsed block SHALL stay collapsed while the user moves through it in normal
 #### Scenario: Leaving insert mode
 - **WHEN** the user returns to normal mode and moves the cursor out of the block
 - **THEN** the block is collapsed again
+
+### Requirement: Collapse blocks automatically
+When `inline.collapse` is `true` (default `true`), each mermaid block SHALL be collapsed once, when its diagram first renders successfully. A block whose render fails SHALL stay expanded. A block the user expanded SHALL NOT be collapsed again by later renders. A block containing the cursor when it is auto-collapsed SHALL stay visible until the cursor leaves it.
+
+#### Scenario: Opening a markdown file
+- **WHEN** `inline.collapse` is `true` and the user opens a markdown file with mermaid blocks
+- **THEN** each block shows only its diagram and collapse marker once it has rendered
+
+#### Scenario: Broken diagram
+- **WHEN** `inline.collapse` is `true` and a block fails to render
+- **THEN** the block stays expanded and shows the error line
+
+#### Scenario: User expands an auto-collapsed block
+- **WHEN** the user expands an auto-collapsed block with `:MermaidCollapse` and edits it
+- **THEN** the block stays expanded after it re-renders

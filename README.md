@@ -90,6 +90,11 @@ Collapsing uses Neovim's `conceal_lines`, which needs `conceallevel` above 0. Wh
 plugin sets `conceallevel=2` (only if it was 0) and adds `n` to `concealcursor` in the windows showing it, and restores
 both when nothing is collapsed any more. Collapsed state is per session and is not saved.
 
+Blocks start collapsed: each block collapses once its diagram has rendered (set `inline = { collapse = false }` to
+start with them expanded).
+A block that fails to render stays open so you can see the source, a block you expand stays expanded, and a block the
+cursor is in stays open until the cursor leaves it.
+
 ## Viewer
 
 `:MermaidView` opens a floating window with the diagram for the block under the cursor (markdown: the fenced block you
@@ -140,6 +145,7 @@ require("mermaid-viewer").setup({
 
   inline = {
     enabled = true,         -- render markdown buffers inline automatically
+    collapse = true,        -- collapse each block once its diagram has rendered
     scale = 1.0,            -- size relative to the editor font (1.0 = diagram text about as tall as a row)
     max_width = 1.0,        -- <= 1: fraction of the window text width, > 1: cells
     max_height = 40,        -- <= 1: fraction of the window height, > 1: rows

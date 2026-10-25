@@ -25,7 +25,7 @@ describe("mermaid-viewer.inline", function()
     saved_env = { TERM_PROGRAM = vim.env.TERM_PROGRAM }
     vim.o.termguicolors = true
     reload()
-    config.setup({ debounce_ms = 30, terminal = { placeholders = true }, inline = { max_height = 6 } })
+    config.setup({ debounce_ms = 30, terminal = { placeholders = true }, inline = { max_height = 6, collapse = false } })
     ns = vim.api.nvim_create_namespace("mermaid_viewer_inline")
     kitty.cell_size = function()
       return { width = 10, height = 20 }

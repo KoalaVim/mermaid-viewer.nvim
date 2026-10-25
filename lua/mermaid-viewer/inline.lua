@@ -221,9 +221,13 @@ local function start_render(buf, st, blk, text_w, text_h)
       e.err, e.key, e.hash, e.text_w, e.text_h = nil, img and key or nil, hash, text_w, text_h
     end
 
-    local cur = M.current_block(buf, id)
-    if cur then
-      place(buf, st, cur)
+    if e.key and config.options.inline.collapse and collapse.auto(buf, id) then
+      M.refresh(buf)
+    else
+      local cur = M.current_block(buf, id)
+      if cur then
+        place(buf, st, cur)
+      end
     end
     if old_key then
       registry.release(old_key)

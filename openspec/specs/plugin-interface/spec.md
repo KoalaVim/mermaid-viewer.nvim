@@ -113,7 +113,7 @@ The plugin SHALL provide a `:MermaidCollapse` user command that toggles collapse
 - **THEN** nothing changes and the system displays "No mermaid diagram found at cursor"
 
 ### Requirement: Inline configuration options
-`setup()` SHALL accept an `inline` table with `enabled` (default `true`), `scale` (default `1.0`), `max_width` (default `1.0`) and `max_height` (default `40`); for both limits a value <= 1 is a fraction of the window and a value > 1 is cells, applied to buffers opened after setup. The removed `inline.height` option SHALL be ignored with a warning.
+`setup()` SHALL accept an `inline` table with `enabled` (default `true`), `collapse` (default `true`), `scale` (default `1.0`), `max_width` (default `1.0`) and `max_height` (default `40`); for both limits a value <= 1 is a fraction of the window and a value > 1 is cells, applied to buffers opened after setup. The removed `inline.height` option SHALL be ignored with a warning.
 
 #### Scenario: Custom inline max height
 - **WHEN** the user calls `setup({ inline = { max_height = 10 } })`
