@@ -60,6 +60,7 @@
 ---@field buf number Float buffer handle
 ---@field image mermaid_viewer.Image|nil Image currently displayed (holds one registry reference)
 ---@field hash string|nil Hash of the displayed source
+---@field theme string|nil Theme the displayed image was rendered with
 ---@field aspect number Diagram width / height
 ---@field cols number Displayed grid columns
 ---@field rows number Displayed grid rows

@@ -1,16 +1,16 @@
 # interactive-navigation Specification
 
 ## Purpose
-Lets users explore a diagram in the floating viewer by zooming, with sharp re-renders at each level, and by moving around with Neovim's own motions.
+Lets users explore a diagram in the floating viewer by zooming instantly, and by moving around with Neovim's own motions.
 
 ## Requirements
 
 ### Requirement: Zoom in
-The system SHALL support zooming in on the diagram, increasing the visible detail by re-rendering at a higher resolution and enlarging the displayed diagram within the floating window. The zoom level SHALL NOT exceed the configured maximum, nor the size at which the diagram would exceed 297 cells on either side.
+The system SHALL support zooming in on the diagram, enlarging the displayed diagram within the floating window. The viewer SHALL render the diagram once, at the resolution of its maximum zoom (capped by the render area limit), and zoom by resizing that image's placement, without re-rendering or re-transmitting it. The zoom level SHALL NOT exceed the configured maximum, nor the size at which the diagram would exceed 297 cells on either side.
 
 #### Scenario: User zooms in from fit-to-window view
 - **WHEN** the user presses the zoom-in key (default `i`)
-- **THEN** the zoom level increases by one step (e.g., 1.0x → 1.5x), the diagram re-renders at the higher resolution, and the view centers on the same region
+- **THEN** the zoom level increases by one step (e.g., 1.0x → 1.5x), the diagram is enlarged immediately from the already transmitted image, and the view centers on the same region
 
 #### Scenario: Zoom in at maximum level
 - **WHEN** the user presses zoom-in at the maximum zoom level (default 5.0x)

@@ -195,10 +195,9 @@ describe("mermaid-viewer viewer", function()
     assert.equals("center", cfg.title_pos)
     assert.equals("diagram", cfg.title[1][1])
     assert.equals(1, cfg.row)
-    local old_id = s.image.id
     nav.zoom_in()
     wait_zoom(s, function()
-      return s.image.id ~= old_id
+      return s.zoom == 1.5
     end)
     cfg = vim.api.nvim_win_get_config(s.win)
     assert.equals(77, cfg.zindex)
@@ -218,18 +217,44 @@ describe("mermaid-viewer viewer", function()
     assert.is_true(s.cols <= 30 and s.rows <= 10)
   end)
 
-  it("zooms in with focus in the float: transmits the new image before deleting the old", function()
+  it("zooms instantly with focus in the float: resizes the same image's placement, no render or transmit", function()
     local s = open(markdown())
-    local old_id, old_cols, old_rows = s.image.id, s.cols, s.rows
+    local id, old_cols, old_rows = s.image.id, s.cols, s.rows
+    sent = {}
     nav.zoom_in()
-    wait_zoom(s, function()
-      return s.image.id ~= old_id
-    end)
+    -- synchronous: no wait
     assert.equals(1.5, s.zoom)
+    assert.equals(id, s.image.id)
     assert.is_true(s.cols > old_cols and s.rows > old_rows)
     assert.same(kitty.placeholder_lines(s.cols, s.rows), vim.api.nvim_buf_get_lines(s.buf, 0, -1, false))
-    assert.is_true(find("t", s.image.id) < find("d", old_id))
+    assert.is_nil(find("t"))
+    -- old placements are dropped (d=i keeps the image data), then the new size is placed
+    local ctrls = {}
+    for ctrl in sent[#sent]:gmatch("\27_G([^;\27]*)") do
+      ctrls[#ctrls + 1] = ctrl
+    end
+    assert.equals(2, #ctrls)
+    assert.truthy(ctrls[1]:find("a=d", 1, true))
+    assert.truthy(ctrls[1]:find("d=i", 1, true))
+    assert.truthy(ctrls[1]:find("i=" .. id, 1, true))
+    local ctrl = ctrls[2]
+    assert.truthy(ctrl:find("a=p", 1, true))
+    assert.truthy(ctrl:find("i=" .. id, 1, true))
+    assert.truthy(ctrl:find("c=" .. s.cols, 1, true))
+    assert.truthy(ctrl:find("r=" .. s.rows, 1, true))
     assert.equals(s.win, vim.api.nvim_get_current_win())
+  end)
+
+  it("renders once at the max-zoom resolution", function()
+    local s = open(markdown())
+    local w = require("mermaid-viewer.png").dimensions(s.image.path)
+    local maxc, maxr = require("mermaid-viewer.viewer").max_size()
+    local size = require("mermaid-viewer.size")
+    local cap = require("mermaid-viewer.viewer").zoom_cap(s.aspect)
+    local cols, rows = size.float(s.aspect, maxc, maxr, cap, kitty.cell_size())
+    local want = size.pixels(cols, rows, kitty.cell_size())
+    assert.is_true(math.abs(w - want) <= 0.1 * want)
+    assert.is_true(w > s.cols * kitty.cell_size().width)
   end)
 
   it("re-renders when the bound block is edited with focus in the float", function()

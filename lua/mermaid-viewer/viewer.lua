@@ -181,6 +181,10 @@ end
 ---@param opts { reset?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState) }
 local function show(s, img, key, hash, result, zoom, opts)
   local cols, rows = result.cols, result.rows
+  if img.cols ~= cols or img.rows ~= rows then
+    kitty.place_virtual(img.id, cols, rows)
+    img.cols, img.rows = cols, rows
+  end
   local maxc, maxr = M.max_size()
   local nw, nh = math.min(cols, maxc), math.min(rows, maxr)
   local old_key = s.key
@@ -239,10 +243,25 @@ function M.refresh(s, opts)
   local zoom = 1.0
   local want = opts.reset and 1.0 or opts.zoom or s.zoom_req
 
+  -- Zoom only: the image already holds the max-zoom resolution, so resize its placement instead of re-rendering
+  if s.image and s.hash == hash and s.theme == config.options.theme and s.win then
+    s.gen = s.gen + 1
+    zoom = clamp_zoom(s.aspect, want)
+    s.zoom_req = zoom
+    local cols, rows = size.float(s.aspect, maxc, maxr, zoom, cell)
+    local key = s.key
+    s.key = nil -- keep the single reference: show releases the previous key
+    show(s, s.image, key, hash, { aspect = s.aspect, cols = cols, rows = rows }, zoom, opts)
+    return
+  end
+
+  -- Render once at the max-zoom grid (capped by size.pixels); every zoom level shows that image scaled
+  local display
   render.diagram(text, function(aspect)
     zoom = clamp_zoom(aspect, want)
     s.zoom_req = zoom
-    return size.float(aspect, maxc, maxr, zoom, cell)
+    display = { size.float(aspect, maxc, maxr, zoom, cell) }
+    return size.float(aspect, maxc, maxr, clamp_zoom(aspect, math.huge), cell)
   end, function(render_err, result)
     if s.closed or gen ~= s.gen then
       return
@@ -254,14 +273,15 @@ function M.refresh(s, opts)
       return
     end
     local key = table.concat({ hash, config.options.theme, result.cols .. "x" .. result.rows }, ":")
-    local img, acquire_err = registry.acquire(key, result.path, result.cols, result.rows)
+    local img, acquire_err = registry.acquire(key, result.path, display[1], display[2])
     if not img then
       if opts.on_error then
         opts.on_error(acquire_err or "cannot display image")
       end
       return
     end
-    show(s, img, key, hash, result, zoom, opts)
+    s.theme = config.options.theme
+    show(s, img, key, hash, { aspect = result.aspect, cols = display[1], rows = display[2] }, zoom, opts)
   end)
 end
 

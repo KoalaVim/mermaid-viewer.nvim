@@ -128,8 +128,26 @@ function M.transmit_virtual(png_path, id, cols, rows)
   if not seq then
     return false
   end
-  send(seq .. graphics_escape({ a = "p", U = 1, i = id, c = cols, r = rows, q = quiet() }))
+  send(seq .. M.placement_seq(id, cols, rows))
   return true
+end
+
+---@param id number
+---@param cols number
+---@param rows number
+---@return string
+function M.placement_seq(id, cols, rows)
+  return graphics_escape({ a = "p", U = 1, i = id, c = cols, r = rows, q = quiet() })
+end
+
+--- Resize an image's virtual placement; the terminal scales the image it already has to the new grid.
+--- A placement without a placement id never replaces an existing one, so the old placements are deleted first
+--- (d=i keeps the image data).
+---@param id number
+---@param cols number
+---@param rows number
+function M.place_virtual(id, cols, rows)
+  send(graphics_escape({ a = "d", d = "i", i = id, q = quiet() }) .. M.placement_seq(id, cols, rows))
 end
 
 --- Delete an image and free its data from the terminal

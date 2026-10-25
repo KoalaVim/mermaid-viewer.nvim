@@ -29,7 +29,7 @@ The system SHALL extract fenced mermaid code blocks (` ```mermaid ... ``` `) fro
 
 #### Scenario: Viewer keeps its block after focus moves to the float
 - **WHEN** the viewer is open for a block and focus is inside the viewer float
-- **THEN** zooming and auto-update re-render that same block's source
+- **THEN** zooming shows and auto-update re-renders that same block's source
 
 #### Scenario: Lines are inserted above the bound block
 - **WHEN** the viewer is open and the user inserts lines above the block in the source buffer
