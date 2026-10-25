@@ -345,6 +345,11 @@ function M.toggle(buf, row)
     buf = vim.api.nvim_get_current_buf()
   end
   local inline = require("mermaid-viewer.inline")
+  local kind = require("mermaid-viewer.source").kind(buf)
+  if kind and kind ~= "markdown" then
+    vim.notify("mermaid-viewer: collapse applies to markdown blocks only", vim.log.levels.INFO)
+    return false
+  end
   if not inline.is_enabled(buf) then
     if require("mermaid-viewer.source").block_at(buf, row) then
       vim.notify("mermaid-viewer: inline rendering is off in this buffer (:MermaidInline)", vim.log.levels.WARN)

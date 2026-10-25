@@ -1,7 +1,7 @@
 # inline-rendering Specification
 
 ## Purpose
-Shows rendered mermaid diagrams directly inside markdown buffers, next to their source blocks, so documents read with their diagrams in place without opening a separate viewer.
+Shows rendered mermaid diagrams directly inside markdown buffers, mermaid (`.mmd`) buffers and AI agent terminals, next to their source, so documents and agent answers read with their diagrams in place without opening a separate viewer.
 
 ## Requirements
 
@@ -15,6 +15,28 @@ In markdown buffers with inline rendering enabled, the system SHALL display the 
 #### Scenario: Non-mermaid code blocks are ignored
 - **WHEN** a markdown buffer contains a ` ```lua ` block
 - **THEN** no diagram is rendered for that block
+
+### Requirement: Render mermaid buffers inline below the text
+In a buffer with filetype `mermaid` or a `*.mmd` file, with inline rendering enabled, the system SHALL treat the whole buffer as one diagram and display it as virtual lines below the last line. It SHALL NOT be collapsible.
+
+#### Scenario: Opening a .mmd file
+- **WHEN** the user opens a non-empty `.mmd` file
+- **THEN** its rendered diagram appears below the last line, and edits re-render it like a markdown block
+
+### Requirement: Render diagrams in agent terminals
+In a terminal buffer whose filetype is listed in `terminal_filetypes` (default `{ "sidekick_terminal" }`), with inline rendering enabled, the system SHALL display a rendered diagram as virtual lines below each diagram in the terminal output (as found by diagram-rendering), and re-scan the output as it arrives, debounced by `debounce_ms`. A diagram that fails to render SHALL show nothing. Diagrams in terminal output SHALL NOT be collapsible.
+
+#### Scenario: Agent prints a diagram without fences
+- **WHEN** an agent in a sidekick terminal prints `  flowchart TD` followed by lines indented by six spaces and then a line indented by two
+- **THEN** the rendered flowchart appears below its last indented line
+
+#### Scenario: Prose is not a diagram
+- **WHEN** the output contains the line `graph of nodes`
+- **THEN** no diagram is detected there
+
+#### Scenario: Diagram still being written
+- **WHEN** the agent has printed only part of a diagram and it fails to render
+- **THEN** nothing is shown for it until the output renders
 
 ### Requirement: Inline diagrams move with the buffer
 Inline diagrams SHALL behave like buffer content: they SHALL scroll with the text, stay clipped to the window that shows them, and not appear in windows or screen regions where their block is not displayed.
@@ -43,7 +65,7 @@ Each inline diagram SHALL keep its natural size relative to the editor font, mul
 - **THEN** it is scaled to the text area width and its height shrinks proportionally
 
 ### Requirement: Inline rendering toggle
-Inline rendering SHALL be enabled by default for markdown buffers. The user SHALL be able to toggle it per buffer, and to disable it globally through configuration.
+Inline rendering SHALL be enabled by default for markdown, mermaid and agent terminal buffers. The user SHALL be able to toggle it per buffer, and to disable it globally through configuration.
 
 #### Scenario: Toggle off in one buffer
 - **WHEN** the user runs `:MermaidInline` in a markdown buffer showing inline diagrams

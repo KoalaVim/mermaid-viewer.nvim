@@ -1,5 +1,6 @@
 --- Inline diagrams: every ```mermaid block of a markdown buffer gets its rendered diagram as virt_lines above the
---- opening fence (Kitty placeholder rows), so it scrolls, clips and folds like buffer text.
+--- opening fence (Kitty placeholder rows), so it scrolls, clips and folds like buffer text. A mermaid/*.mmd buffer
+--- gets its diagram under the last line, and an agent terminal (`terminal_filetypes`) under each diagram it printed.
 ---@class mermaid_viewer.Inline
 local M = {}
 
@@ -18,6 +19,7 @@ local ns = vim.api.nvim_create_namespace("mermaid_viewer_inline")
 local anchor_ns = vim.api.nvim_create_namespace("mermaid_viewer_blocks")
 
 local RESIZE_DEBOUNCE_MS = 100
+local SCROLL_DEBOUNCE_MS = 100
 
 ---@class mermaid_viewer.InlineBlock : mermaid_viewer.Block
 ---@field id number? anchor id (nil until the block was scanned)
@@ -35,6 +37,7 @@ local RESIZE_DEBOUNCE_MS = 100
 ---@field tokens table<number, number> anchor id -> latest render request, to drop stale callbacks
 ---@field pending table<number, { hash: string, text_w: number, text_h: number }>
 ---@field cache? { tick: number, list: mermaid_viewer.InlineBlock[] }
+---@field scanning? boolean a scan triggered by update_visible is running
 
 ---@type table<number, mermaid_viewer.InlineState>
 local states = {}
@@ -51,10 +54,12 @@ function M.is_enabled(buf)
   return states[buf] ~= nil
 end
 
---- The buffer's blocks with their anchor ids. Cached per changedtick; blocks without an anchor yet are not cached.
+--- The buffer's blocks with their anchor ids. Cached per changedtick; blocks without an anchor yet are not cached,
+--- and neither are a terminal's, whose scan follows its windows.
 ---@param buf number
 ---@param st mermaid_viewer.InlineState
 ---@return mermaid_viewer.InlineBlock[]
+---@return boolean complete every block has an anchor
 local function resolve(buf, st)
   local tick = vim.api.nvim_buf_get_changedtick(buf)
   if st.cache and st.cache.tick == tick then
@@ -70,8 +75,8 @@ local function resolve(buf, st)
     blk.hash = vim.fn.sha256(blk.content)
     complete = complete and blk.id ~= nil
   end
-  st.cache = complete and { tick = tick, list = list } or nil
-  return list
+  st.cache = complete and source.kind(buf) ~= "terminal" and { tick = tick, list = list } or nil
+  return list, complete
 end
 
 --- Row the block's virtual lines hang from. Normally the opening fence; a collapsed block's lines are concealed
@@ -84,6 +89,9 @@ end
 ---@return boolean above
 local function attach_row(buf, blk, hidden)
   if not hidden then
+    if blk.below then
+      return blk.end_row, false
+    end
     return blk.start_row, true
   end
   local last = vim.api.nvim_buf_line_count(buf) - 1
@@ -137,7 +145,8 @@ local function place(buf, st, blk)
   local img = e and e.key and registry.get(e.key)
   if img then
     virt = kitty.placeholder_virt_lines(img.cols, img.rows, img.hl)
-  elseif e and e.err then
+  elseif e and e.err and source.kind(buf) ~= "terminal" then
+    -- in a terminal the text is the agent's, often still streaming: a failed render just shows nothing
     virt = { { { error_line(e.err, e.text_w or 80), "DiagnosticError" } } }
   end
   if hidden then
@@ -180,7 +189,8 @@ function M.refresh(buf)
     return
   end
   local list = resolve(buf, st)
-  collapse.sync(buf, list)
+  -- collapse applies to markdown blocks only
+  collapse.sync(buf, source.kind(buf) == "markdown" and list or {})
   for _, blk in ipairs(list) do
     if blk.id then
       place(buf, st, blk)
@@ -221,7 +231,7 @@ local function start_render(buf, st, blk, text_w, text_h)
       e.err, e.key, e.hash, e.text_w, e.text_h = nil, img and key or nil, hash, text_w, text_h
     end
 
-    if e.key and config.options.inline.collapse and collapse.auto(buf, id) then
+    if e.key and config.options.inline.collapse and source.kind(buf) == "markdown" and collapse.auto(buf, id) then
       M.refresh(buf)
     else
       local cur = M.current_block(buf, id)
@@ -268,6 +278,8 @@ local function visible_ranges(buf)
   return ranges, text_w, text_h
 end
 
+local on_diff
+
 --- Render the blocks that are (nearly) on screen and whose displayed result is stale. Cheap when nothing changed.
 ---@param buf number
 function M.update_visible(buf)
@@ -279,7 +291,15 @@ function M.update_visible(buf)
   if not text_w or #ranges == 0 then
     return
   end
-  for _, blk in ipairs(resolve(buf, st)) do
+  local list, complete = resolve(buf, st)
+  if not complete and not st.scanning and source.kind(buf) == "terminal" then
+    -- a terminal scrolled back to diagrams the last scan did not reach: anchor them now
+    st.scanning = true
+    on_diff(buf, st, blocks.scan(buf))
+    st.scanning = nil
+    return
+  end
+  for _, blk in ipairs(list) do
     local visible = false
     for _, r in ipairs(ranges) do
       if blk.start_row <= r.bot and blk.end_row >= r.top then
@@ -298,7 +318,7 @@ end
 ---@param buf number
 ---@param st mermaid_viewer.InlineState
 ---@param diff mermaid_viewer.BlockDiff
-local function on_diff(buf, st, diff)
+on_diff = function(buf, st, diff)
   st.cache = nil
   for _, blk in ipairs(diff.removed) do
     drop_entry(buf, st, blk.id)
@@ -359,9 +379,40 @@ local function teardown(buf)
   end
 end
 
+---@type table<number, uv_timer_t> terminal buffer -> pending scroll update
+local scroll_timers = {}
+
+--- Update a buffer's visible diagrams. A terminal scrolls on every chunk of output, so its update waits until the
+--- scrolling pauses.
+---@param buf number
+local function update_soon(buf)
+  if source.kind(buf) ~= "terminal" then
+    M.update_visible(buf)
+    return
+  end
+  local t = scroll_timers[buf]
+  if t then
+    t:stop()
+  else
+    t = vim.uv.new_timer()
+    scroll_timers[buf] = t
+  end
+  t:start(
+    SCROLL_DEBOUNCE_MS,
+    0,
+    vim.schedule_wrap(function()
+      if scroll_timers[buf] == t then
+        scroll_timers[buf] = nil
+        t:close()
+      end
+      M.update_visible(buf)
+    end)
+  )
+end
+
 local function update_all_visible()
   for buf in pairs(states) do
-    M.update_visible(buf)
+    update_soon(buf)
   end
 end
 
@@ -417,7 +468,7 @@ function M.enable(buf)
   if states[buf] then
     return true
   end
-  if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].filetype ~= "markdown" then
+  if not vim.api.nvim_buf_is_valid(buf) or not source.kind(buf) then
     return false
   end
   if not terminal.check() then
@@ -450,8 +501,8 @@ function M.toggle(buf)
   if buf == 0 then
     buf = vim.api.nvim_get_current_buf()
   end
-  if vim.bo[buf].filetype ~= "markdown" then
-    vim.notify("inline rendering applies to markdown buffers only", vim.log.levels.INFO)
+  if not source.kind(buf) then
+    vim.notify("inline rendering applies to markdown, mermaid and agent terminal buffers only", vim.log.levels.INFO)
     return M.is_enabled(buf)
   end
   if states[buf] then
@@ -462,17 +513,17 @@ function M.toggle(buf)
 end
 
 local function auto_enable(buf)
-  if config.options.inline.enabled and not user_off[buf] and vim.bo[buf].filetype == "markdown" then
+  if config.options.inline.enabled and not user_off[buf] and source.kind(buf) then
     M.enable(buf)
   end
 end
 
---- Auto-enable inline rendering for markdown buffers (when `inline.enabled`) and clean up on exit. Idempotent.
+--- Auto-enable inline rendering for markdown, mermaid and agent terminal buffers (when `inline.enabled`) and clean up
+--- on exit. Idempotent.
 function M.setup()
   local group = vim.api.nvim_create_augroup("MermaidViewerInline", { clear = true })
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
-    pattern = "markdown",
     callback = function(ev)
       auto_enable(ev.buf)
     end,

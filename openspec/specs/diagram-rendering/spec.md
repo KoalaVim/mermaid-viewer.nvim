@@ -1,7 +1,7 @@
 # diagram-rendering Specification
 
 ## Purpose
-Finds Mermaid source in `.mmd` files and markdown fenced blocks and turns it into PNG images with `mmdr`, keeping renders in step with edits and cached so unchanged diagrams are never rendered twice.
+Finds Mermaid source in `.mmd` files, markdown fenced blocks and AI agent terminal output, and turns it into PNG images with `mmdr`, keeping renders in step with edits and cached so unchanged diagrams are never rendered twice.
 
 ## Requirements
 
@@ -34,6 +34,21 @@ The system SHALL extract fenced mermaid code blocks (` ```mermaid ... ``` `) fro
 #### Scenario: Lines are inserted above the bound block
 - **WHEN** the viewer is open and the user inserts lines above the block in the source buffer
 - **THEN** the viewer still renders the same block
+
+### Requirement: Extract Mermaid source from agent terminal output
+The system SHALL find diagrams in terminal buffers whose filetype is listed in `terminal_filetypes` (default `{ "sidekick_terminal" }`): closed ` ```mermaid ` fences at any indent, and unfenced diagrams made of a mermaid declaration line followed by more-indented lines. The common indent of the declaration SHALL be removed from the source. The viewer SHALL use the diagram under the cursor.
+
+#### Scenario: Unfenced diagram boundaries
+- **WHEN** the output has a declaration line (`flowchart TD`, `graph LR`, `sequenceDiagram`, ...) followed by lines indented more than it
+- **THEN** the diagram spans the declaration and those lines, including blank lines between them, and ends before the next non-blank line indented no more than the declaration; a declaration without such lines is not a diagram
+
+#### Scenario: Long agent session
+- **WHEN** the terminal holds thousands of lines of output and a window shows its end
+- **THEN** only diagrams starting near the window (a screen above and below, plus 100 rows above) are scanned for, so the cost does not grow with the scrollback; a diagram starting there is followed to its end
+
+#### Scenario: Viewer on agent output
+- **WHEN** the user triggers the viewer with the cursor on a line of an unfenced `sequenceDiagram` in a sidekick terminal
+- **THEN** the system extracts the declaration and its indented lines, dedented, as the diagram source
 
 ### Requirement: Render via mmdr CLI
 The system SHALL invoke the `mmdr` binary to render extracted Mermaid source to PNG format. The invocation MUST be asynchronous (non-blocking). The requested pixel size SHALL be derived from the target size in terminal cells and the terminal's cell size in pixels, and SHALL NOT exceed 10000 pixels on either side or 2048×2048 pixels of area. The configured theme SHALL be passed to every render.

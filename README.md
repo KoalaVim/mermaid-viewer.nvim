@@ -25,10 +25,10 @@ Or see the [mmdr installation docs](https://github.com/mermaid-rs/mermaid-rs#ins
 {
   "KoalaVim/mermaid-viewer.nvim",
   cmd = { "MermaidView", "MermaidClose", "MermaidToggle", "MermaidInline", "MermaidCollapse" },
-  ft = { "markdown", "mermaid" },
+  ft = { "markdown", "mermaid", "sidekick_terminal" },
   keys = {
-    { "<leader>um", "<cmd>MermaidToggle<cr>", ft = { "markdown", "mermaid" }, desc = "Mermaid Viewer" },
-    { "<leader>ui", "<cmd>MermaidInline<cr>", ft = "markdown", desc = "Toggle inline mermaid" },
+    { "<leader>um", "<cmd>MermaidToggle<cr>", ft = { "markdown", "mermaid", "sidekick_terminal" }, desc = "Mermaid Viewer" },
+    { "<leader>ui", "<cmd>MermaidInline<cr>", ft = { "markdown", "mermaid", "sidekick_terminal" }, desc = "Toggle inline mermaid" },
     { "<leader>uc", "<cmd>MermaidCollapse<cr>", ft = "markdown", desc = "Collapse mermaid block" },
   },
   opts = {},
@@ -48,7 +48,20 @@ buffer, is clipped to its window and shows in each window that displays the bloc
 - If a block fails to render, a one-line error (the first line of the `mmdr` message, truncated to the window width) is
   shown above the fence instead of a picture, with no notification per keystroke. It is replaced by the diagram once the
   syntax is fixed.
-- Non-mermaid code blocks are ignored. `.mmd` buffers are not rendered inline; use `:MermaidView` for them.
+- Non-mermaid code blocks are ignored.
+
+`.mmd` / `mermaid` buffers are rendered too: the whole buffer is one diagram, drawn under its last line.
+
+**Agent terminals.** Terminal buffers whose filetype is in `terminal_filetypes` (default `{ "sidekick_terminal" }`,
+the terminals [sidekick.nvim](https://github.com/folke/sidekick.nvim) runs AI agents in) get a picture under each
+diagram the agent prints. A diagram is a closed ` ```mermaid ` fence, or what agent UIs print instead (the fences
+stripped): a declaration line such as `flowchart TD` or `sequenceDiagram`, followed by more-indented lines, up to the next
+line that is not indented more than the declaration. A diagram that fails to render (for example while it is still
+being written) shows nothing. Only the output around the windows showing the terminal is scanned (a screen above and
+below, plus 100 rows above for a diagram's start), so long sessions stay fast. `:MermaidView` opens the diagram under the cursor (in terminal-normal mode). Lines the
+agent's UI wrapped are not joined back, so a diagram with very long lines may not render.
+
+Collapsing applies to markdown blocks only.
 
 Diagrams keep their natural size relative to your font, so text is the same size in every diagram: a small diagram
 takes a few rows, a long one takes more. At `inline.scale = 1.0` a line of diagram text is about one row tall; raise it
@@ -62,12 +75,12 @@ the current buffer.
 
 | Command / mapping                      | Action                                                 |
 | -------------------------------------- | ------------------------------------------------------ |
-| `:MermaidInline`                       | Toggle inline rendering in the current markdown buffer |
+| `:MermaidInline`                       | Toggle inline rendering in the current buffer          |
 | `<Plug>(mermaid-viewer-inline-toggle)` | Same, for use in your own mappings                     |
 
 Turning it off removes all diagrams and collapse markers from that buffer (collapsed blocks become visible again) and
-frees their images; other buffers are unaffected. Turning it on again renders every block. On a non-markdown buffer the
-command only shows "inline rendering applies to markdown buffers only".
+frees their images; other buffers are unaffected. Turning it on again renders every block. On other buffers the command
+only shows "inline rendering applies to markdown, mermaid and agent terminal buffers only".
 
 ### Collapsing blocks
 
@@ -146,9 +159,10 @@ require("mermaid-viewer").setup({
   debounce_ms = 300,        -- delay before re-rendering after an edit (inline and viewer)
   fast_text = false,        -- use mmdr --fastText for faster rendering
   auto_update = true,       -- re-render the viewer when its block changes
+  terminal_filetypes = { "sidekick_terminal" }, -- terminal buffers whose output is scanned for diagrams
 
   inline = {
-    enabled = true,         -- render markdown buffers inline automatically
+    enabled = true,         -- render markdown, mermaid and agent terminal buffers inline automatically
     collapse = true,        -- collapse each block once its diagram has rendered
     scale = 1.0,            -- size relative to the editor font (1.0 = diagram text about as tall as a row)
     max_width = 1.0,        -- <= 1: fraction of the window text width, > 1: cells

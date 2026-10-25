@@ -97,9 +97,9 @@ The plugin SHALL provide a `:MermaidInline` user command that toggles inline ren
 - **WHEN** the user runs `:MermaidInline` in a markdown buffer
 - **THEN** inline rendering for that buffer switches between on and off
 
-#### Scenario: Run MermaidInline outside markdown
-- **WHEN** the user runs `:MermaidInline` in a buffer that is not markdown
-- **THEN** the system displays a notification that inline rendering applies to markdown buffers only
+#### Scenario: Run MermaidInline in an unsupported buffer
+- **WHEN** the user runs `:MermaidInline` in a buffer that is not markdown, mermaid or an agent terminal
+- **THEN** the system displays a notification that inline rendering applies to markdown, mermaid and agent terminal buffers only
 
 ### Requirement: MermaidCollapse command
 The plugin SHALL provide a `:MermaidCollapse` user command that toggles collapse for the mermaid block under the cursor.

@@ -39,6 +39,8 @@ local defaults = {
   terminal = {
     placeholders = nil,
   },
+  ---@type string[]
+  terminal_filetypes = { "sidekick_terminal" },
   ---@type { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
   inline = {
     enabled = true,
@@ -113,6 +115,7 @@ function M.validate(cfg)
     debug = { cfg.debug, "boolean" },
     terminal = { cfg.terminal, "table" },
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },
+    terminal_filetypes = { cfg.terminal_filetypes, "table" },
     inline = { cfg.inline, "table" },
     ["inline.enabled"] = { cfg.inline.enabled, "boolean" },
     ["inline.collapse"] = { cfg.inline.collapse, "boolean" },

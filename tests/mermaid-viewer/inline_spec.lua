@@ -371,7 +371,10 @@ describe("mermaid-viewer.inline", function()
       local lua = make_buf({ "print(1)" }, { ft = "lua" })
       inline.toggle(lua)
       assert.is_false(inline.is_enabled(lua))
-      assert.equals("inline rendering applies to markdown buffers only", notified[#notified].msg)
+      assert.equals(
+        "inline rendering applies to markdown, mermaid and agent terminal buffers only",
+        notified[#notified].msg
+      )
     end)
 
     it("max_height config caps the diagram rows", function()
@@ -427,6 +430,78 @@ describe("mermaid-viewer.inline", function()
       end)
       vim.api.nvim_buf_delete(b, { force = true })
       assert.equals(1, sent_matching("d=I"))
+    end)
+  end)
+
+  describe("mermaid buffers and agent terminals", function()
+    it("draws a mermaid buffer's diagram under its last line, and never collapses it", function()
+      config.setup({ debounce_ms = 30, terminal = { placeholders = true }, inline = { max_height = 6 } })
+      local b = make_buf({ "graph TD", "  A --> B", "  B --> C" }, { ft = "mermaid" })
+      assert.is_true(inline.enable(b))
+      wait_for(function()
+        return #marks(b) == 1 and #marks(b)[1][4].virt_lines > 1
+      end, "diagram")
+      local m = marks(b)[1]
+      assert.equals(2, m[2])
+      assert.is_false(m[4].virt_lines_above)
+      assert.is_false(require("mermaid-viewer.collapse").is_hidden(b, m[1]))
+      assert.is_false(require("mermaid-viewer.collapse").toggle(b, 0))
+      assert.equals("mermaid-viewer: collapse applies to markdown blocks only", notified[#notified].msg)
+    end)
+
+    it("draws each diagram of an agent terminal under it, and nothing for one that fails", function()
+      local b = make_buf({
+        "  flowchart TD",
+        "      A --> B",
+        "  text",
+        "  graph TD",
+        "      A -->",
+        "  more",
+      }, { ft = "sidekick_terminal" })
+      assert.is_true(inline.enable(b))
+      wait_for(function()
+        return #marks(b) == 1
+      end, "diagram")
+      vim.wait(300)
+      local m = marks(b)
+      assert.equals(1, #m)
+      assert.equals(1, m[1][2])
+      assert.is_false(m[1][4].virt_lines_above)
+      assert.equals(0, #notified)
+    end)
+
+    it("renders a terminal diagram once it is scrolled into view", function()
+      local lines = { "  flowchart TD", "      A --> B" }
+      for n = 1, 1000 do
+        lines[#lines + 1] = "  prose " .. n
+      end
+      local b = make_buf(lines, { ft = "sidekick_terminal" })
+      vim.api.nvim_win_set_cursor(0, { #lines, 0 })
+      vim.cmd("redraw")
+      assert.is_true(inline.enable(b))
+      vim.wait(300)
+      assert.equals(0, #marks(b))
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.cmd("normal! zt")
+      vim.api.nvim_exec_autocmds("WinScrolled", {})
+      wait_for(function()
+        return #marks(b) == 1
+      end, "diagram after scrolling back")
+      assert.equals(1, marks(b)[1][2])
+    end)
+
+    it("follows output of a real terminal buffer", function()
+      local b = vim.api.nvim_create_buf(true, false)
+      bufs[#bufs + 1] = b
+      vim.api.nvim_win_set_buf(0, b)
+      vim.fn.jobstart({ "sh", "-c", "sleep 0.5; printf '  flowchart TD\\r\\n      A --> B\\r\\n  done\\r\\n'; sleep 5" }, { term = true })
+      vim.bo[b].filetype = "sidekick_terminal"
+      assert.is_true(inline.enable(b))
+      assert.equals(0, #marks(b))
+      wait_for(function()
+        return #marks(b) == 1
+      end, "diagram from terminal output")
+      assert.equals(1, marks(b)[1][2])
     end)
   end)
 

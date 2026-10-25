@@ -14,17 +14,17 @@ function M.setup(opts)
   require("mermaid-viewer.config").setup(opts)
 end
 
---- Bind the viewer to the diagram under the cursor (markdown; also from the line just above a block, where its inline
---- diagram is drawn) or the whole buffer (.mmd / mermaid)
+--- Bind the viewer to the diagram under the cursor (markdown and agent terminals; in markdown also from the line just
+--- above a block, where its inline diagram is drawn) or the whole buffer (.mmd / mermaid)
 ---@param buf number
 ---@return mermaid_viewer.ViewerSource|nil
 ---@return string|nil err
 local function resolve_source(buf)
   local source = require("mermaid-viewer.source")
   local viewer = require("mermaid-viewer.viewer")
-  local ft = vim.bo[buf].filetype
+  local kind = source.kind(buf)
 
-  if ft == "markdown" then
+  if kind == "markdown" or kind == "terminal" then
     local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
     -- the inline module also resolves the cursor sitting on a diagram or collapse marker
     local ok, inline = pcall(require, "mermaid-viewer.inline")
@@ -47,7 +47,7 @@ local function resolve_source(buf)
     return { buf = buf, mark = viewer.anchor(buf, block.start_row) }
   end
 
-  if ft == "mermaid" or vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":e") == "mmd" then
+  if kind == "mermaid" then
     local text, err = source.extract(buf)
     if not text then
       return nil, err

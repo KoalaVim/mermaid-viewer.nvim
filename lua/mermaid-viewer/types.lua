@@ -35,6 +35,7 @@
 ---@field pan_step? number Cells h/j/k/l scroll per press at 1.0x, scaled by the zoom (H/J/K/L scroll twice as far)
 ---@field debug? boolean Send graphics with terminal replies enabled and log them (vim.notify at DEBUG level)
 ---@field terminal? mermaid_viewer.TerminalOptions Terminal capability overrides
+---@field terminal_filetypes? string[] Filetypes of terminal buffers whose output (e.g. an AI agent's) is scanned for diagrams
 ---@field inline? mermaid_viewer.InlineOptions Inline rendering options
 
 ---@class mermaid_viewer.InternalConfig
@@ -50,6 +51,7 @@
 ---@field pan_step number
 ---@field debug boolean
 ---@field terminal { placeholders: boolean|nil }
+---@field terminal_filetypes string[]
 ---@field inline { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
 
 ---@class mermaid_viewer.ViewerSource

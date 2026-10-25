@@ -3,6 +3,9 @@ local M = {}
 
 local config = require("mermaid-viewer.config")
 
+---@type table<number, table> augroup -> token of the watch that owns it; an older buffer attachment detaches itself
+local owners = {}
+
 ---@param bufnr number Buffer to watch
 ---@param on_change fun() Callback to invoke after debounce
 ---@param name? string Group name suffix, so independent watchers on one buffer don't replace each other
@@ -46,11 +49,30 @@ function M.watch(bufnr, on_change, name)
     end,
   })
 
+  -- terminal output does not trigger TextChanged
+  if vim.bo[bufnr].buftype == "terminal" then
+    local token = {}
+    owners[augroup] = token
+    vim.api.nvim_buf_attach(bufnr, false, {
+      on_lines = function()
+        if owners[augroup] ~= token then
+          return true
+        end
+        vim.schedule(function()
+          if owners[augroup] == token then
+            schedule_render()
+          end
+        end)
+      end,
+    })
+  end
+
   return augroup
 end
 
 ---@param augroup number The autocmd group id returned by watch()
 function M.stop(augroup)
+  owners[augroup] = nil
   pcall(vim.api.nvim_del_augroup_by_id, augroup)
 end
 
