@@ -67,17 +67,19 @@ function M.zoom_reset()
   })
 end
 
---- Pan the current viewer by count steps
+--- Pan the current viewer by count * pan_step steps
 ---@param dx number
 ---@param dy number
 local function pan(dx, dy)
   local s = state.current
   if s then
-    viewer.pan(s, dx * vim.v.count1, dy * vim.v.count1)
+    local step = vim.v.count1 * config.options.pan_step
+    viewer.pan(s, dx * step, dy * step)
   end
 end
 
---- Zoom, pan and close keymaps on the float buffer. h/j/k/l scroll the view; other native motions work as usual.
+--- Zoom, pan and close keymaps on the float buffer. h/j/k/l scroll the view, H/J/K/L twice as far; other native
+--- motions work as usual.
 ---@param float_buf number Buffer handle
 function M.setup_keymaps(float_buf)
   local keys = config.options.keys
@@ -92,18 +94,15 @@ function M.setup_keymaps(float_buf)
   end
   map(keys.zoom_out, M.zoom_out)
   map(keys.zoom_reset, M.zoom_reset)
-  map("h", function()
-    pan(-1, 0)
-  end)
-  map("l", function()
-    pan(1, 0)
-  end)
-  map("j", function()
-    pan(0, 1)
-  end)
-  map("k", function()
-    pan(0, -1)
-  end)
+  for _, m in ipairs({ { "h", -1, 0 }, { "l", 1, 0 }, { "j", 0, 1 }, { "k", 0, -1 } }) do
+    local key, dx, dy = m[1], m[2], m[3]
+    map(key, function()
+      pan(dx, dy)
+    end)
+    map(key:upper(), function()
+      pan(2 * dx, 2 * dy)
+    end)
+  end
   for _, key in ipairs(keys.close) do
     map(key, function()
       require("mermaid-viewer").close()

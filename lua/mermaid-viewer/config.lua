@@ -31,6 +31,8 @@ local defaults = {
   zoom_step = 1.5,
   ---@type number
   max_zoom = 5.0,
+  ---@type number
+  pan_step = 1,
   ---@type boolean
   debug = false,
   ---@type { placeholders: boolean|nil }
@@ -61,10 +63,6 @@ local warned_removed = false
 local function drop_removed(opts)
   opts = vim.deepcopy(opts)
   local found = {}
-  if opts.pan_step ~= nil then
-    opts.pan_step = nil
-    table.insert(found, "pan_step")
-  end
   if type(opts.keys) == "table" then
     for _, key in ipairs(REMOVED_KEYS) do
       if opts.keys[key] ~= nil then
@@ -111,6 +109,7 @@ function M.validate(cfg)
     auto_update = { cfg.auto_update, "boolean" },
     zoom_step = { cfg.zoom_step, "number" },
     max_zoom = { cfg.max_zoom, "number" },
+    pan_step = { cfg.pan_step, "number" },
     debug = { cfg.debug, "boolean" },
     terminal = { cfg.terminal, "table" },
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },

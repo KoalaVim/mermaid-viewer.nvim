@@ -32,6 +32,7 @@
 ---@field auto_update? boolean Auto-update on source change
 ---@field zoom_step? number Multiplier per zoom step
 ---@field max_zoom? number Maximum zoom level
+---@field pan_step? number Cells h/j/k/l scroll per press (H/J/K/L scroll twice as far)
 ---@field debug? boolean Send graphics with terminal replies enabled and log them (vim.notify at DEBUG level)
 ---@field terminal? mermaid_viewer.TerminalOptions Terminal capability overrides
 ---@field inline? mermaid_viewer.InlineOptions Inline rendering options
@@ -46,6 +47,7 @@
 ---@field auto_update boolean
 ---@field zoom_step number
 ---@field max_zoom number
+---@field pan_step number
 ---@field debug boolean
 ---@field terminal { placeholders: boolean|nil }
 ---@field inline { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
