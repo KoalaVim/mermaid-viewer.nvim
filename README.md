@@ -99,7 +99,8 @@ cursor is in stays open until the cursor leaves it.
 ## Viewer
 
 `:MermaidView` opens a floating window with the diagram for the block under the cursor (markdown: the fenced block you
-are in, including its inline diagram or collapse marker; `.mmd`/`mermaid` buffers: the whole buffer). The diagram is
+are in, including its inline diagram or collapse marker, or the block starting on the next line, so it works from the
+line just above an inline diagram; `.mmd`/`mermaid` buffers: the whole buffer). The diagram is
 plain buffer text inside the float and is clipped by it.
 
 | Command          | Description       |

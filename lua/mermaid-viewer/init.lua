@@ -14,7 +14,8 @@ function M.setup(opts)
   require("mermaid-viewer.config").setup(opts)
 end
 
---- Bind the viewer to the diagram under the cursor (markdown) or the whole buffer (.mmd / mermaid)
+--- Bind the viewer to the diagram under the cursor (markdown; also from the line just above a block, where its inline
+--- diagram is drawn) or the whole buffer (.mmd / mermaid)
 ---@param buf number
 ---@return mermaid_viewer.ViewerSource|nil
 ---@return string|nil err
@@ -24,17 +25,22 @@ local function resolve_source(buf)
   local ft = vim.bo[buf].filetype
 
   if ft == "markdown" then
-    local row = vim.api.nvim_win_get_cursor(0)[1] - 1
-    local block
+    local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
     -- the inline module also resolves the cursor sitting on a diagram or collapse marker
     local ok, inline = pcall(require, "mermaid-viewer.inline")
-    if ok and type(inline.block_at) == "function" then
-      local id = inline.block_at(buf, row)
-      if id then
-        block = require("mermaid-viewer.blocks").get(buf, id)
+    local function block_at(row)
+      if ok and type(inline.block_at) == "function" then
+        local id = inline.block_at(buf, row)
+        if id then
+          return require("mermaid-viewer.blocks").get(buf, id)
+        end
       end
+      return source.block_at(buf, row)
     end
-    block = block or source.block_at(buf, row)
+    local block = block_at(cursor)
+    if not block and cursor + 1 < vim.api.nvim_buf_line_count(buf) then
+      block = block_at(cursor + 1)
+    end
     if not block then
       return nil, "No mermaid diagram found at cursor"
     end

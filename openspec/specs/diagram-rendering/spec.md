@@ -13,11 +13,15 @@ The system SHALL treat the entire buffer content of `.mmd` files as Mermaid diag
 - **THEN** the system extracts the full buffer content as the diagram source
 
 ### Requirement: Extract Mermaid source from Markdown code blocks
-The system SHALL extract fenced mermaid code blocks (` ```mermaid ... ``` `) from Markdown buffers. When the cursor is inside a mermaid code block, on its fences, or on its inline diagram or collapse marker, that block is used as the source. Once a viewer is opened for a block, the viewer SHALL stay bound to that block regardless of which window has focus or where the cursor moves.
+The system SHALL extract fenced mermaid code blocks (` ```mermaid ... ``` `) from Markdown buffers. When the cursor is inside a mermaid code block, on its fences, on its inline diagram or collapse marker, or on the line just above the block, that block is used as the source. Once a viewer is opened for a block, the viewer SHALL stay bound to that block regardless of which window has focus or where the cursor moves.
 
 #### Scenario: Cursor inside a mermaid code block
 - **WHEN** the user triggers the viewer with the cursor inside a ` ```mermaid ` fenced block
 - **THEN** the system extracts the content between the opening and closing fences (excluding the fences themselves) as the diagram source
+
+#### Scenario: Cursor on the line above a block
+- **WHEN** the user triggers the viewer with the cursor on the line just above a ` ```mermaid ` block (expanded or collapsed)
+- **THEN** that block is used as the source
 
 #### Scenario: No mermaid block at cursor
 - **WHEN** the user triggers the viewer in a Markdown buffer with no mermaid code block at the cursor position
