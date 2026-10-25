@@ -50,8 +50,12 @@ buffer, is clipped to its window and shows in each window that displays the bloc
   syntax is fixed.
 - Non-mermaid code blocks are ignored. `.mmd` buffers are not rendered inline; use `:MermaidView` for them.
 
-Each diagram is scaled to `inline.height` rows; its width follows the diagram's aspect ratio. If that would be wider
-than the window's text area, the diagram is scaled down to fit the width (and gets fewer rows).
+Diagrams keep their natural size relative to your font, so text is the same size in every diagram: a small diagram
+takes a few rows, a long one takes more. At `inline.scale = 1.0` a line of diagram text is about one row tall; raise it
+for bigger diagrams. A diagram taller than `inline.max_height` or wider than `inline.max_width` is shrunk to fit
+(keeping its aspect ratio), and it is never wider than the window's text area. Both limits take a fraction of the
+window (`<= 1`, e.g. `max_height = 0.5` is half the window height) or a number of cells (`> 1`). Open a shrunk diagram with
+`:MermaidView` to read it at full size.
 
 Set `inline = { enabled = false }` to open markdown buffers without diagrams; `:MermaidInline` still enables them for
 the current buffer.
@@ -136,7 +140,9 @@ require("mermaid-viewer").setup({
 
   inline = {
     enabled = true,         -- render markdown buffers inline automatically
-    height = 15,            -- inline diagram height in rows
+    scale = 1.0,            -- size relative to the editor font (1.0 = diagram text about as tall as a row)
+    max_width = 1.0,        -- <= 1: fraction of the window text width, > 1: cells
+    max_height = 40,        -- <= 1: fraction of the window height, > 1: rows
   },
 
   float = {
@@ -192,7 +198,8 @@ require("mermaid-viewer").setup({
 fractions of the editor and only cap the size of a window sized to the diagram.
 
 **Removed options:** `pan_step` and `keys.pan_up`/`pan_down`/`pan_left`/`pan_right` no longer exist; use the native
-motions above. Passing them to `setup()` logs one warning and they are ignored.
+motions above. `inline.height` was replaced by `inline.scale`, `inline.max_height` and `inline.max_width`. Passing a
+removed option to `setup()` logs a warning and it is ignored.
 
 ## Health check
 

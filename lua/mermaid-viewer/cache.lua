@@ -3,8 +3,8 @@ local M = {}
 
 local temp = require("mermaid-viewer.temp")
 
----@type table<string, number> source hash -> aspect (width / height)
-local aspects = {}
+---@type table<string, { width: number, height: number }> source hash -> natural render size in pixels
+local naturals = {}
 
 ---@param source string
 ---@return string
@@ -39,20 +39,28 @@ function M.lookup(key)
 end
 
 ---@param hash string
----@return number|nil
+---@return number|nil aspect width / height of the natural render
 function M.get_aspect(hash)
-  return aspects[hash]
+  local n = naturals[hash]
+  return n and n.width / n.height
 end
 
 ---@param hash string
----@param aspect number
-function M.set_aspect(hash, aspect)
-  aspects[hash] = aspect
+---@return { width: number, height: number }|nil
+function M.get_natural(hash)
+  return naturals[hash]
 end
 
---- Remove all cached files and forget aspects
+---@param hash string
+---@param width number
+---@param height number
+function M.set_natural(hash, width, height)
+  naturals[hash] = { width = width, height = height }
+end
+
+--- Remove all cached files and forget natural sizes
 function M.clear()
-  aspects = {}
+  naturals = {}
   temp.cleanup_all()
 end
 

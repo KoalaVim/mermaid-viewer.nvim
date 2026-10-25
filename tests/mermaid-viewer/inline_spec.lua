@@ -25,7 +25,7 @@ describe("mermaid-viewer.inline", function()
     saved_env = { TERM_PROGRAM = vim.env.TERM_PROGRAM }
     vim.o.termguicolors = true
     reload()
-    config.setup({ debounce_ms = 30, terminal = { placeholders = true } })
+    config.setup({ debounce_ms = 30, terminal = { placeholders = true }, inline = { max_height = 6 } })
     ns = vim.api.nvim_create_namespace("mermaid_viewer_inline")
     kitty.cell_size = function()
       return { width = 10, height = 20 }
@@ -124,7 +124,7 @@ describe("mermaid-viewer.inline", function()
       for _, mark in ipairs(m) do
         local d = mark[4]
         assert.is_true(d.virt_lines_above)
-        assert.equals(config.options.inline.height, #d.virt_lines)
+        assert.equals(config.options.inline.max_height, #d.virt_lines)
         local chunk = d.virt_lines[1][1]
         assert.equals(PLACEHOLDER, chunk[1]:sub(1, #PLACEHOLDER))
         assert.is_truthy(chunk[2]:match("^MermaidViewerImage%d+$"))
@@ -211,7 +211,7 @@ describe("mermaid-viewer.inline", function()
       end)
       local d = marks(b)[1][4]
       assert.truthy(d.virt_lines[1][1][2]:match("^MermaidViewerImage"))
-      assert.is_true(#d.virt_lines < config.options.inline.height)
+      assert.is_true(#d.virt_lines < config.options.inline.max_height)
       local info = vim.fn.getwininfo(vim.api.nvim_get_current_win())[1]
       local cells = vim.fn.strchars(d.virt_lines[1][1][1]) / 3
       assert.is_true(cells <= info.width - info.textoff)
@@ -248,7 +248,7 @@ describe("mermaid-viewer.inline", function()
       assert.equals(2, #m)
       assert.equals(old_mark[1], m[1][1])
       assert.is_not.equals(old_hl, m[1][4].virt_lines[1][1][2])
-      assert.equals(config.options.inline.height, #m[1][4].virt_lines)
+      assert.equals(config.options.inline.max_height, #m[1][4].virt_lines)
     end)
 
     it("shows the diagram of a new block after the debounce", function()
@@ -374,14 +374,14 @@ describe("mermaid-viewer.inline", function()
       assert.equals("inline rendering applies to markdown buffers only", notified[#notified].msg)
     end)
 
-    it("height config drives the diagram rows", function()
-      config.options.inline.height = 10
+    it("max_height config caps the diagram rows", function()
+      config.options.inline.max_height = 4
       local b = make_buf(TALL)
       inline.enable(b)
       wait_for(function()
         return #marks(b) == 1
       end)
-      assert.equals(10, #marks(b)[1][4].virt_lines)
+      assert.equals(4, #marks(b)[1][4].virt_lines)
     end)
 
     it("setup() auto-enables markdown buffers on FileType/BufWinEnter", function()

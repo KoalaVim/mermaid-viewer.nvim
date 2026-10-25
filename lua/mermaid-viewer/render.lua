@@ -129,7 +129,7 @@ end
 --- Render a diagram sized to a cell grid. Learns the aspect ratio with a cached natural-size render if unknown,
 --- then renders at the target pixel size (reusing the natural render when within 10% of the target).
 ---@param source string
----@param target { cols: number, rows: number }|fun(aspect: number): number, number Fixed grid, or computes cols, rows from the aspect
+---@param target { cols: number, rows: number }|fun(aspect: number, natural: { width: number, height: number }): number, number Fixed grid, or computes cols, rows from the aspect and natural pixel size
 ---@param callback fun(err: string|nil, result: mermaid_viewer.DiagramResult|nil)
 function M.diagram(source, target, callback)
   local hash = cache.hash(source)
@@ -138,7 +138,7 @@ function M.diagram(source, target, callback)
     local aspect = cache.get_aspect(hash)
     local cols, rows
     if type(target) == "function" then
-      cols, rows = target(aspect)
+      cols, rows = target(aspect, cache.get_natural(hash))
     else
       cols, rows = target.cols, target.rows
     end
@@ -176,7 +176,7 @@ function M.diagram(source, target, callback)
     if not nw then
       return callback("could not read rendered PNG: " .. tostring(nh), nil)
     end
-    cache.set_aspect(hash, nw / nh)
+    cache.set_natural(hash, nw, nh)
     sized(path, nw, nh)
   end)
 end

@@ -16,21 +16,27 @@ local function round(n)
   return math.floor(n + 0.5)
 end
 
---- Inline size: fixed height, width by aspect, shrunk to the text width
----@param aspect number Diagram width / height
----@param height_rows number
+--- mmdr draws 16px text on lines about this tall; at scale 1.0 one such line takes one cell row
+M.NATURAL_LINE_PX = 24
+
+--- Inline size: the natural render scaled to the font, shrunk (keeping the aspect) to fit max_width and max_height
+---@param natural { width: number, height: number } Natural render size in pixels
+---@param opts { scale: number, max_width: number, max_height: number } <= 1 is a fraction of text_cols / win_rows
 ---@param text_cols number
+---@param win_rows number
 ---@param cell mermaid_viewer.CellSize
 ---@return number cols
 ---@return number rows
-function M.inline(aspect, height_rows, text_cols, cell)
-  local rows = math.max(1, height_rows)
-  local cols = math.max(1, round(rows * cell.height * aspect / cell.width))
-  text_cols = math.max(1, text_cols)
-  if cols > text_cols then
-    cols = text_cols
-    rows = math.max(1, round(cols * cell.width / (aspect * cell.height)))
-  end
+function M.inline(natural, opts, text_cols, win_rows, cell)
+  local px = cell.height / M.NATURAL_LINE_PX * opts.scale
+  local w, h = natural.width * px, natural.height * px
+  local max_cols = opts.max_width <= 1 and text_cols * opts.max_width or opts.max_width
+  max_cols = math.max(1, math.min(math.floor(max_cols), text_cols, M.MAX_CELLS))
+  local max_rows = opts.max_height <= 1 and win_rows * opts.max_height or opts.max_height
+  max_rows = math.max(1, math.min(math.floor(max_rows), M.MAX_CELLS))
+  local fit = math.min(1, max_cols * cell.width / w, max_rows * cell.height / h)
+  local cols = math.max(1, math.min(max_cols, round(w * fit / cell.width)))
+  local rows = math.max(1, math.min(max_rows, round(h * fit / cell.height)))
   return cols, rows
 end
 

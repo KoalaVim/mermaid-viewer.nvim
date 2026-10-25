@@ -37,10 +37,12 @@ local defaults = {
   terminal = {
     placeholders = nil,
   },
-  ---@type { enabled: boolean, height: number }
+  ---@type { enabled: boolean, scale: number, max_width: number, max_height: number }
   inline = {
     enabled = true,
-    height = 15,
+    scale = 1.0,
+    max_width = 1.0,
+    max_height = 40,
   },
 }
 
@@ -69,6 +71,14 @@ local function drop_removed(opts)
         table.insert(found, "keys." .. key)
       end
     end
+  end
+  if type(opts.inline) == "table" and opts.inline.height ~= nil then
+    opts.inline.height = nil
+    vim.notify(
+      "mermaid-viewer: inline.height was removed and is ignored. Diagrams now keep their natural size; "
+        .. "use inline.scale, inline.max_height and inline.max_width.",
+      vim.log.levels.WARN
+    )
   end
   if #found > 0 and not warned_removed then
     warned_removed = true
@@ -105,7 +115,9 @@ function M.validate(cfg)
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },
     inline = { cfg.inline, "table" },
     ["inline.enabled"] = { cfg.inline.enabled, "boolean" },
-    ["inline.height"] = { cfg.inline.height, "number" },
+    ["inline.scale"] = { cfg.inline.scale, "number" },
+    ["inline.max_width"] = { cfg.inline.max_width, "number" },
+    ["inline.max_height"] = { cfg.inline.max_height, "number" },
   })
 end
 

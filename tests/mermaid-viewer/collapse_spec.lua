@@ -21,7 +21,7 @@ describe("mermaid-viewer.collapse", function()
     registry = require("mermaid-viewer.registry")
     collapse = require("mermaid-viewer.collapse")
     inline = require("mermaid-viewer.inline")
-    config.setup({ debounce_ms = 30, terminal = { placeholders = true } })
+    config.setup({ debounce_ms = 30, terminal = { placeholders = true }, inline = { max_height = 6 } })
     inline_ns = vim.api.nvim_create_namespace("mermaid_viewer_inline")
     collapse_ns = vim.api.nvim_create_namespace("mermaid_viewer_collapse")
     kitty.cell_size = function()
@@ -76,7 +76,7 @@ describe("mermaid-viewer.collapse", function()
 
   local function rendered(b)
     local m = diagram_mark(b)
-    return m ~= nil and #m[4].virt_lines >= config.options.inline.height
+    return m ~= nil and #m[4].virt_lines >= config.options.inline.max_height
   end
 
   --- text of the screen rows of the current window
@@ -114,7 +114,7 @@ describe("mermaid-viewer.collapse", function()
 
       local m = diagram_mark(b)
       local d = m[4]
-      local img_rows = config.options.inline.height
+      local img_rows = config.options.inline.max_height
       assert.equals(img_rows + 1, #d.virt_lines)
       assert.equals("··· 5 lines (mermaid)", d.virt_lines[#d.virt_lines][1][1])
       -- hangs from the first visible row after the block, still above it
@@ -181,7 +181,7 @@ describe("mermaid-viewer.collapse", function()
       assert.equals(0, #conceal_marks(b))
       local m = diagram_mark(b)
       assert.equals(1, m[2])
-      assert.equals(config.options.inline.height, #m[4].virt_lines)
+      assert.equals(config.options.inline.max_height, #m[4].virt_lines)
       assert.is_false(collapse.is_collapsed(b, inline.block_at(b, 3)))
     end)
 

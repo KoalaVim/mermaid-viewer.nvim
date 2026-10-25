@@ -26,13 +26,14 @@ local RESIZE_DEBOUNCE_MS = 100
 ---@class mermaid_viewer.InlineEntry
 ---@field hash? string content hash of what is displayed (or of the failed render)
 ---@field text_w? number text width the diagram was sized for
+---@field text_h? number window height the diagram was sized for
 ---@field key? string registry key of the displayed image
 ---@field err? string error text shown instead of a diagram
 
 ---@class mermaid_viewer.InlineState
 ---@field entries table<number, mermaid_viewer.InlineEntry> anchor id -> displayed result
 ---@field tokens table<number, number> anchor id -> latest render request, to drop stale callbacks
----@field pending table<number, { hash: string, text_w: number }>
+---@field pending table<number, { hash: string, text_w: number, text_h: number }>
 ---@field cache? { tick: number, list: mermaid_viewer.InlineBlock[] }
 
 ---@type table<number, mermaid_viewer.InlineState>
@@ -191,14 +192,15 @@ end
 ---@param st mermaid_viewer.InlineState
 ---@param blk mermaid_viewer.InlineBlock
 ---@param text_w number
-local function start_render(buf, st, blk, text_w)
+---@param text_h number
+local function start_render(buf, st, blk, text_w, text_h)
   local id, hash = blk.id, blk.hash
   local token = (st.tokens[id] or 0) + 1
   st.tokens[id] = token
-  st.pending[id] = { hash = hash, text_w = text_w }
+  st.pending[id] = { hash = hash, text_w = text_w, text_h = text_h }
 
-  local function target(aspect)
-    return size.inline(aspect, config.options.inline.height, text_w, kitty.cell_size())
+  local function target(_, natural)
+    return size.inline(natural, config.options.inline, text_w, text_h, kitty.cell_size())
   end
 
   render.diagram(blk.content, target, function(err, res)
@@ -211,12 +213,12 @@ local function start_render(buf, st, blk, text_w)
     local old_key = e.key
 
     if err or not res then
-      e.err, e.key, e.hash, e.text_w = err or "render failed", nil, hash, text_w
+      e.err, e.key, e.hash, e.text_w, e.text_h = err or "render failed", nil, hash, text_w, text_h
     else
       local key = table.concat({ hash, config.options.theme or "", res.cols .. "x" .. res.rows }, "|")
       -- acquire before releasing the old image, so the swap has no blank frame
       local img = registry.acquire(key, res.path, res.cols, res.rows)
-      e.err, e.key, e.hash, e.text_w = nil, img and key or nil, hash, text_w
+      e.err, e.key, e.hash, e.text_w, e.text_h = nil, img and key or nil, hash, text_w, text_h
     end
 
     local cur = M.current_block(buf, id)
@@ -248,16 +250,18 @@ end
 ---@param buf number
 ---@return { top: number, bot: number }[] ranges 0-based rows
 ---@return number|nil text_w narrowest text width among the windows
+---@return number|nil text_h lowest window height among the windows
 local function visible_ranges(buf)
-  local ranges, text_w = {}, nil
+  local ranges, text_w, text_h = {}, nil, nil
   for _, win in ipairs(vim.fn.win_findbuf(buf)) do
     local info = vim.fn.getwininfo(win)[1]
     local h = vim.api.nvim_win_get_height(win)
     ranges[#ranges + 1] = { top = info.topline - 1 - h, bot = info.topline - 1 + 2 * h }
     local w = info.width - info.textoff
     text_w = text_w and math.min(text_w, w) or w
+    text_h = text_h and math.min(text_h, h) or h
   end
-  return ranges, text_w
+  return ranges, text_w, text_h
 end
 
 --- Render the blocks that are (nearly) on screen and whose displayed result is stale. Cheap when nothing changed.
@@ -267,7 +271,7 @@ function M.update_visible(buf)
   if not st or not vim.api.nvim_buf_is_valid(buf) then
     return
   end
-  local ranges, text_w = visible_ranges(buf)
+  local ranges, text_w, text_h = visible_ranges(buf)
   if not text_w or #ranges == 0 then
     return
   end
@@ -279,10 +283,10 @@ function M.update_visible(buf)
       end
     end
     local e, p = st.entries[blk.id or -1], st.pending[blk.id or -1]
-    local fresh = e and e.hash == blk.hash and (e.err or e.text_w == text_w)
-    local queued = p and p.hash == blk.hash and p.text_w == text_w
+    local fresh = e and e.hash == blk.hash and (e.err or (e.text_w == text_w and e.text_h == text_h))
+    local queued = p and p.hash == blk.hash and p.text_w == text_w and p.text_h == text_h
     if visible and blk.id and not fresh and not queued then
-      start_render(buf, st, blk, text_w)
+      start_render(buf, st, blk, text_w, text_h)
     end
   end
 end

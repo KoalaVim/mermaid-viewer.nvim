@@ -28,15 +28,19 @@ Inline diagrams SHALL behave like buffer content: they SHALL scroll with the tex
 - **THEN** each window shows the diagrams for the blocks visible in that window, clipped to that window
 
 ### Requirement: Inline diagram size
-Each inline diagram SHALL be scaled to a configurable height in rows (default 15), with width following the diagram's aspect ratio. When that width would exceed the window's text area, the diagram SHALL be scaled down to fit the width, reducing its height proportionally.
+Each inline diagram SHALL keep its natural size relative to the editor font, multiplied by `inline.scale` (default 1.0), so text has the same size across diagrams. A diagram taller than `inline.max_height` rows or wider than `inline.max_width` SHALL shrink to fit, preserving its aspect ratio, and SHALL never be wider than the window's text area.
 
-#### Scenario: Tall diagram
-- **WHEN** a diagram whose natural aspect ratio is taller than wide is rendered inline with the default height
-- **THEN** it occupies 15 rows and its width in columns preserves the aspect ratio
+#### Scenario: Short and long diagrams
+- **WHEN** a small diagram and a long diagram are rendered inline with default settings
+- **THEN** the long diagram occupies more rows than the small one and their text is the same size
+
+#### Scenario: Diagram taller than max_height
+- **WHEN** a diagram at its natural size would be taller than `inline.max_height` rows
+- **THEN** it occupies `inline.max_height` rows and its width shrinks to preserve the aspect ratio
 
 #### Scenario: Very wide diagram in a narrow window
-- **WHEN** a diagram scaled to 15 rows would be wider than the window's text area
-- **THEN** it is scaled to the text area width and occupies fewer than 15 rows, preserving the aspect ratio
+- **WHEN** a diagram at its natural size would be wider than the window's text area
+- **THEN** it is scaled to the text area width and its height shrinks proportionally
 
 ### Requirement: Inline rendering toggle
 Inline rendering SHALL be enabled by default for markdown buffers. The user SHALL be able to toggle it per buffer, and to disable it globally through configuration.
