@@ -95,6 +95,18 @@ describe("mermaid-viewer.registry", function()
     assert.is_nil(registry.get("a"))
   end)
 
+  it("retransmit_all re-sends live images under their ids and skips released ones", function()
+    local a = registry.acquire("a", png, 4, 3)
+    local b = registry.acquire("b", png, 2, 2)
+    registry.release("b")
+    sent = {}
+    registry.retransmit_all()
+    assert.equals(1, #sent)
+    assert.truthy(sent[1]:find("i=" .. a.id, 1, true))
+    assert.falsy(sent[1]:find("i=" .. b.id .. ",", 1, true))
+    assert.truthy(sent[1]:find("a=p", 1, true))
+  end)
+
   it("clamps the grid to the placeholder limit", function()
     local img = registry.acquire("big", png, 500, 400)
     assert.equals(297, img.cols)

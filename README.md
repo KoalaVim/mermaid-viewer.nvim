@@ -122,7 +122,8 @@ cell per press (with a count, e.g. `10l`), and Neovim's own motions work too: `z
 
 Zoom keeps the cell in the middle of the view centered, and stops at `max_zoom` (default 5.0) or when the diagram would
 exceed 297 cells on a side. Editing the block while the viewer is open re-renders it (`auto_update`, debounced by
-`debounce_ms`), also with focus in the float. Closing the float any way (`q`, `:q`, `<C-w>c`) removes the image.
+`debounce_ms`), also with focus in the float. Closing the float any way (`q`, `:q`, `<C-w>c`) removes the image and sends the inline diagrams to the terminal again,
+in case large zoomed images pushed them out of its image memory.
 
 ### Plug mappings
 

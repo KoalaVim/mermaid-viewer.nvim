@@ -441,6 +441,24 @@ describe("mermaid-viewer viewer", function()
     assert.is_true(vim.api.nvim_win_is_valid(state.current.win))
   end)
 
+  it("re-sends the other images to the terminal after closing", function()
+    local png = vim.fn.tempname() .. ".png"
+    vim.fn.writefile({ "fake" }, png)
+    local other = registry.acquire("inline-image", png, 4, 3)
+    local s = open(markdown())
+    local id = s.image.id
+    sent = {}
+    mv.close()
+    local deleted = find("d", id)
+    local resent = find("t", other.id)
+    assert.is_not_nil(deleted)
+    assert.is_not_nil(resent)
+    assert.is_true(resent > deleted)
+    assert.is_nil(find("t", id))
+    registry.release("inline-image")
+    os.remove(png)
+  end)
+
   it("tears down when the float is closed through the API", function()
     local s = open(markdown())
     local id = s.image.id

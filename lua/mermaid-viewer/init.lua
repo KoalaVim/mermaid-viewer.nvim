@@ -179,8 +179,11 @@ function M.close(from_win_closed)
     pcall(vim.api.nvim_del_augroup_by_id, s.group)
   end
   if s.key then
-    require("mermaid-viewer.registry").release(s.key)
+    local registry = require("mermaid-viewer.registry")
+    registry.release(s.key)
     s.key, s.image = nil, nil
+    -- zoomed renders may have pushed the inline images out of the terminal's image memory
+    registry.retransmit_all()
   end
 
   local viewer = require("mermaid-viewer.viewer")

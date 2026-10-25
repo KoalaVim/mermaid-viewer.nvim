@@ -71,6 +71,10 @@ Closing the viewer float by any means SHALL fully close the viewer: its images a
 - **WHEN** the user closes the viewer float with `:q` or `<C-w>c`
 - **THEN** the diagram disappears from the screen and the next `:MermaidView` opens a new viewer
 
+#### Scenario: Inline diagrams restored after zooming
+- **WHEN** the user zooms the viewer far enough that the terminal evicts older images, then closes the viewer
+- **THEN** every inline diagram is sent to the terminal again under its image id and is shown as before, without re-rendering
+
 ### Requirement: Unicode placeholder support required
 The system SHALL display images only in terminals that support Kitty graphics Unicode placeholders. In other terminals it SHALL NOT emit graphics data and SHALL inform the user once that diagrams cannot be displayed.
 

@@ -12,6 +12,7 @@ local M = {}
 ---@field cols number
 ---@field rows number
 ---@field hl string
+---@field path string PNG the image was transmitted from
 ---@field refcount number
 
 local MAX_ID = 0xFFFFFF
@@ -63,7 +64,7 @@ function M.acquire(key, png_path, cols, rows)
     return nil, "cannot read " .. png_path
   end
   used_ids[id] = true
-  img = { key = key, id = id, cols = cols, rows = rows, hl = kitty.set_highlight(id), refcount = 1 }
+  img = { key = key, id = id, cols = cols, rows = rows, hl = kitty.set_highlight(id), path = png_path, refcount = 1 }
   images[key] = img
   return img
 end
@@ -89,6 +90,14 @@ end
 ---@return mermaid_viewer.Image|nil
 function M.get(key)
   return images[key]
+end
+
+--- Send every live image to the terminal again under its id. Terminals evict old images when big ones (zoomed
+--- viewer renders) fill their image memory; re-sending restores the inline diagrams without re-rendering.
+function M.retransmit_all()
+  for _, img in pairs(images) do
+    kitty.transmit_virtual(img.path, img.id, img.cols, img.rows)
+  end
 end
 
 --- Release everything regardless of refcount (VimLeavePre)
