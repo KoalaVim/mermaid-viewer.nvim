@@ -36,7 +36,7 @@ The system SHALL extract fenced mermaid code blocks (` ```mermaid ... ``` `) fro
 - **THEN** the viewer still renders the same block
 
 ### Requirement: Render via mmdr CLI
-The system SHALL invoke the `mmdr` binary to render extracted Mermaid source to PNG format. The invocation MUST be asynchronous (non-blocking). The requested pixel size SHALL be derived from the target size in terminal cells and the terminal's cell size in pixels, and SHALL NOT exceed 10000 pixels on either side. The configured theme SHALL be passed to every render.
+The system SHALL invoke the `mmdr` binary to render extracted Mermaid source to PNG format. The invocation MUST be asynchronous (non-blocking). The requested pixel size SHALL be derived from the target size in terminal cells and the terminal's cell size in pixels, and SHALL NOT exceed 10000 pixels on either side or 2048×2048 pixels of area. The configured theme SHALL be passed to every render.
 
 #### Scenario: Successful render
 - **WHEN** the system has extracted valid Mermaid source
@@ -49,6 +49,10 @@ The system SHALL invoke the `mmdr` binary to render extracted Mermaid source to 
 #### Scenario: Large target area
 - **WHEN** the target area at the current zoom would exceed 10000 pixels on a side
 - **THEN** the requested size is scaled down proportionally so the larger side is 10000 pixels
+
+#### Scenario: Deep zoom stays within the area cap
+- **WHEN** the target area at the current zoom would exceed 2048×2048 pixels
+- **THEN** the requested size is scaled down proportionally to that area, and the terminal still displays the image
 
 #### Scenario: Configured theme
 - **WHEN** the user configures `theme = "dark"`

@@ -5,6 +5,10 @@ local M = {}
 M.MAX_CELLS = 297
 --- Terminals reject images larger than this per side
 M.MAX_PIXELS = 10000
+--- Pixel area cap (16 MB decoded RGBA). herdr silently drops images whose base64 RGBA exceeds its 30 MB frame budget
+--- (~5.9M pixels), and terminals evict images once their image memory is full, so very deep zooms render at this
+--- resolution and are upscaled.
+M.MAX_AREA = 2048 * 2048
 
 ---@class mermaid_viewer.CellSize
 ---@field width number
@@ -83,7 +87,7 @@ function M.float(aspect, cols, rows, zoom, cell)
   return math.min(M.MAX_CELLS, math.max(1, round(c))), math.min(M.MAX_CELLS, math.max(1, round(r)))
 end
 
---- Pixel request for a cols x rows grid, scaled down proportionally to MAX_PIXELS
+--- Pixel request for a cols x rows grid, scaled down proportionally to MAX_PIXELS and MAX_AREA
 ---@param cols number
 ---@param rows number
 ---@param cell mermaid_viewer.CellSize
@@ -91,7 +95,7 @@ end
 ---@return number height
 function M.pixels(cols, rows, cell)
   local w, h = cols * cell.width, rows * cell.height
-  local scale = math.min(1, M.MAX_PIXELS / w, M.MAX_PIXELS / h)
+  local scale = math.min(1, M.MAX_PIXELS / w, M.MAX_PIXELS / h, math.sqrt(M.MAX_AREA / (w * h)))
   return math.max(1, math.floor(w * scale)), math.max(1, math.floor(h * scale))
 end
 

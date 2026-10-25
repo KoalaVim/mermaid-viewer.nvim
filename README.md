@@ -223,7 +223,8 @@ Run `:checkhealth mermaid-viewer` to verify Neovim, `mmdr`, `termguicolors` and 
 3. Transmits each PNG once to the terminal as a Kitty virtual placement, then draws it with Unicode placeholder
    characters: as virtual lines above the fence inline, and as buffer lines in the viewer float
 4. Re-renders on source change with debouncing, swapping images only once the new one is ready
-5. Zoom re-renders at higher resolution for sharp output at every level
+5. Zoom re-renders at higher resolution for sharp output, up to 2048×2048 pixels of area so multiplexers like herdr
+   and the terminal accept it (deeper zooms are upscaled)
 
 ## License
 

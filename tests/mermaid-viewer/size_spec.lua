@@ -101,9 +101,16 @@ describe("mermaid-viewer.size", function()
     end)
 
     it("scales down proportionally so neither side exceeds 10000", function()
-      local w, h = size.pixels(297, 297, { width = 50, height = 100 }) -- 14850 x 29700
-      assert.equals(10000, h)
-      assert.equals(5000, w)
+      local w, h = size.pixels(297, 5, { width = 50, height = 100 }) -- 14850 x 500
+      assert.equals(10000, w)
+      assert.equals(336, h)
+    end)
+
+    it("scales down proportionally so the area stays within MAX_AREA", function()
+      local w, h = size.pixels(297, 297, { width = 20, height = 40 }) -- 5940 x 11880
+      assert.is_true(w * h <= size.MAX_AREA)
+      assert.is_true(w * h > size.MAX_AREA * 0.99)
+      assert.is_true(math.abs(h / w - 2) < 0.01)
     end)
   end)
 end)
