@@ -67,7 +67,17 @@ function M.zoom_reset()
   })
 end
 
---- Zoom and close keymaps on the float buffer. Movement uses native motions.
+--- Pan the current viewer by count steps
+---@param dx number
+---@param dy number
+local function pan(dx, dy)
+  local s = state.current
+  if s then
+    viewer.pan(s, dx * vim.v.count1, dy * vim.v.count1)
+  end
+end
+
+--- Zoom, pan and close keymaps on the float buffer. h/j/k/l scroll the view; other native motions work as usual.
 ---@param float_buf number Buffer handle
 function M.setup_keymaps(float_buf)
   local keys = config.options.keys
@@ -82,6 +92,18 @@ function M.setup_keymaps(float_buf)
   end
   map(keys.zoom_out, M.zoom_out)
   map(keys.zoom_reset, M.zoom_reset)
+  map("h", function()
+    pan(-1, 0)
+  end)
+  map("l", function()
+    pan(1, 0)
+  end)
+  map("j", function()
+    pan(0, 1)
+  end)
+  map("k", function()
+    pan(0, -1)
+  end)
   for _, key in ipairs(keys.close) do
     map(key, function()
       require("mermaid-viewer").close()

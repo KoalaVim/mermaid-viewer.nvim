@@ -42,8 +42,8 @@ describe("mermaid-viewer.config", function()
   end)
 
   it("has sensible default keymaps", function()
-    assert.equals("+", config.options.keys.zoom_in)
-    assert.equals("-", config.options.keys.zoom_out)
+    assert.equals("i", config.options.keys.zoom_in)
+    assert.equals("o", config.options.keys.zoom_out)
     assert.equals("0", config.options.keys.zoom_reset)
     assert.is_nil(config.options.keys.pan_up)
     assert.same({ "q", "<Esc>" }, config.options.keys.close)
@@ -66,7 +66,7 @@ describe("mermaid-viewer.config", function()
   it("deep merges nested keys table", function()
     config.setup({ keys = { zoom_in = "=" } })
     assert.equals("=", config.options.keys.zoom_in)
-    assert.equals("-", config.options.keys.zoom_out) -- unchanged
+    assert.equals("o", config.options.keys.zoom_out) -- unchanged
     assert.same({ "q", "<Esc>" }, config.options.keys.close) -- unchanged
   end)
 

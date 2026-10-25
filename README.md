@@ -109,14 +109,14 @@ plain buffer text inside the float and is clipped by it.
 | `:MermaidClose`  | Close the viewer  |
 | `:MermaidToggle` | Toggle the viewer |
 
-At 1.0x the whole diagram fits in the float. Zoom in and the float becomes a scrollable canvas that you move around with
-Neovim's own motions: `h` `j` `k` `l`, `zh`/`zl`/`zH`/`zL`, `<C-d>`/`<C-u>`, `<C-e>`/`<C-y>`, `gg`/`G`, and the mouse
-wheel. The view stops at the diagram's edges.
+At 1.0x the whole diagram fits in the float. Zoom in and the float becomes a scrollable canvas: `h` `j` `k` `l` scroll it one
+cell per press (with a count, e.g. `10l`), and Neovim's own motions work too: `zh`/`zl`/`zH`/`zL`, `<C-d>`/`<C-u>`,
+`<C-e>`/`<C-y>`, `gg`/`G`, and the mouse wheel. The view stops at the diagram's edges.
 
 | Key (default) | Action                                                   |
 | ------------- | -------------------------------------------------------- |
-| `+` / `=`     | Zoom in (`keys.zoom_in`; `=` is added when it is `+`)    |
-| `-`           | Zoom out (`keys.zoom_out`)                               |
+| `i`           | Zoom in (`keys.zoom_in`; `=` is added when it is `+`)    |
+| `o`           | Zoom out (`keys.zoom_out`)                               |
 | `0`           | Reset to 1.0x, view at the top-left (`keys.zoom_reset`) |
 | `q` / `<Esc>` | Close (`keys.close`)                                     |
 
@@ -161,8 +161,8 @@ require("mermaid-viewer").setup({
   },
 
   keys = {
-    zoom_in = "+",
-    zoom_out = "-",
+    zoom_in = "i",
+    zoom_out = "o",
     zoom_reset = "0",
     close = { "q", "<Esc>" },
   },
@@ -190,7 +190,7 @@ require("mermaid-viewer").setup({
     win_config = {
       title = " Mermaid ",
       title_pos = "center",
-      footer = " +/- zoom · 0 reset · q close ",
+      footer = " i/o zoom · 0 reset · q close ",
       footer_pos = "right",
       zindex = 60,
       -- pin it instead of centering it:

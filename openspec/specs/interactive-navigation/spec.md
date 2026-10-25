@@ -9,7 +9,7 @@ Lets users explore a diagram in the floating viewer by zooming, with sharp re-re
 The system SHALL support zooming in on the diagram, increasing the visible detail by re-rendering at a higher resolution and enlarging the displayed diagram within the floating window. The zoom level SHALL NOT exceed the configured maximum, nor the size at which the diagram would exceed 297 cells on either side.
 
 #### Scenario: User zooms in from fit-to-window view
-- **WHEN** the user presses the zoom-in key (default `+` or `=`)
+- **WHEN** the user presses the zoom-in key (default `i`)
 - **THEN** the zoom level increases by one step (e.g., 1.0x → 1.5x), the diagram re-renders at the higher resolution, and the view centers on the same region
 
 #### Scenario: Zoom in at maximum level
@@ -24,7 +24,7 @@ The system SHALL support zooming in on the diagram, increasing the visible detai
 The system SHALL support zooming out to see more of the diagram.
 
 #### Scenario: User zooms out from zoomed-in view
-- **WHEN** the user presses the zoom-out key (default `-`)
+- **WHEN** the user presses the zoom-out key (default `o`)
 - **THEN** the zoom level decreases by one step (e.g., 2.0x → 1.5x) and the view updates
 
 #### Scenario: Zoom out at minimum level
@@ -39,7 +39,7 @@ The system SHALL support resetting the zoom level back to fit-to-window (1.0x).
 - **THEN** the zoom level returns to 1.0x and the entire diagram fits within the float
 
 ### Requirement: Configurable navigation keymaps
-The system SHALL allow users to override the default zoom and close keybindings via the `setup()` configuration. Movement inside the viewer uses Neovim's own motions and is not remapped.
+The system SHALL allow users to override the default zoom and close keybindings via the `setup()` configuration. `h`/`j`/`k`/`l` scroll the view; other movement uses Neovim's own motions.
 
 #### Scenario: User sets custom keybindings
 - **WHEN** the user configures `keys = { zoom_in = "<C-=>", zoom_out = "<C-->" }` in setup
@@ -51,6 +51,10 @@ When the diagram is larger than the viewer float, the user SHALL be able to move
 #### Scenario: Scroll horizontally while zoomed in
 - **WHEN** the diagram is wider than the float and the user presses `l`, `zl` or `zL`, or scrolls the mouse wheel horizontally
 - **THEN** the view moves right, revealing more of the diagram to the right
+
+#### Scenario: Each h/j/k/l press scrolls
+- **WHEN** the diagram is larger than the float and the user presses `l` (or `j`) once
+- **THEN** the view moves right (or down) by one cell immediately, wherever the cursor is, and with a count it moves that many cells
 
 #### Scenario: Scroll vertically while zoomed in
 - **WHEN** the diagram is taller than the float and the user presses `j`, `<C-d>`, or scrolls the mouse wheel

@@ -282,6 +282,28 @@ function M.clamp_view(s)
   end)
 end
 
+--- Move the view by dx columns and dy rows, stopping at the diagram's edges. The cursor goes to the middle of the
+--- new view, so later native motions start from there.
+---@param s mermaid_viewer.ViewerState
+---@param dx number
+---@param dy number
+function M.pan(s, dx, dy)
+  if not s.win or not vim.api.nvim_win_is_valid(s.win) then
+    return
+  end
+  local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
+  vim.api.nvim_win_call(s.win, function()
+    local v = vim.fn.winsaveview()
+    local left = clamp(v.leftcol + dx, 0, math.max(0, s.cols - w))
+    local top = clamp(v.topline + dy, 1, math.max(1, s.rows - h + 1))
+    local lnum = clamp(top + math.floor(h / 2), 1, s.rows)
+    local cell = math.min(left + math.floor(w / 2), s.cols - 1)
+    local line = vim.api.nvim_buf_get_lines(s.buf, lnum - 1, lnum, false)[1] or ""
+    local col = math.max(0, vim.fn.byteidx(line, cell))
+    vim.fn.winrestview({ topline = top, leftcol = left, lnum = lnum, col = col, curswant = cell })
+  end)
+end
+
 --- Close the float window (the buffer is wiped with it)
 ---@param s mermaid_viewer.ViewerState
 function M.close_window(s)
