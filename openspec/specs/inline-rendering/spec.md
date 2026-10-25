@@ -97,6 +97,10 @@ A collapsed block SHALL stay collapsed while the user moves through it in normal
 - **WHEN** the user moves the cursor with `j`/`k` across a collapsed block
 - **THEN** the block stays collapsed
 
+#### Scenario: A collapsed block takes one move
+- **WHEN** the cursor is on the line above a collapsed block and the user presses `j` once
+- **THEN** the cursor lands on the first line after the block, in the same column
+
 #### Scenario: Entering insert mode on a collapsed block
 - **WHEN** the user enters insert mode with the cursor on a collapsed block's marker
 - **THEN** the block's source becomes visible for editing

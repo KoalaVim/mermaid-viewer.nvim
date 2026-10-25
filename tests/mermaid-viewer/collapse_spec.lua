@@ -52,6 +52,11 @@ describe("mermaid-viewer.collapse", function()
     vim.notify = orig_notify
   end)
 
+  local function concat_lines(a, b)
+    local out = vim.list_extend({}, a)
+    return vim.list_extend(out, b)
+  end
+
   local function make_buf(lines)
     local b = vim.api.nvim_create_buf(true, false)
     bufs[#bufs + 1] = b
@@ -409,6 +414,48 @@ describe("mermaid-viewer.collapse", function()
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
       vim.api.nvim_exec_autocmds("CursorMoved", { buffer = b })
       assert.is_true(collapse.is_hidden(b, id))
+    end)
+  end)
+
+  describe("cursor skips hidden lines", function()
+    local function move(b, line)
+      vim.api.nvim_win_set_cursor(0, { line, 0 })
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = b })
+      return vim.api.nvim_win_get_cursor(0)[1]
+    end
+
+    it("moving down onto a collapsed block lands after it", function()
+      local b = setup_collapsed()
+      assert.equals(1, move(b, 1))
+      assert.equals(7, move(b, 2)) -- block is lines 2-6
+    end)
+
+    it("moving up onto a collapsed block lands before it", function()
+      local b = setup_collapsed()
+      assert.equals(7, move(b, 7))
+      assert.equals(1, move(b, 6))
+    end)
+
+    it("turns back at the end of the buffer", function()
+      local b = make_buf(concat_lines({ "intro" }, BLOCK))
+      inline.enable(b)
+      wait_for(function()
+        return rendered(b)
+      end, "diagram rendered")
+      assert.is_true(collapse.toggle(b, 3))
+      assert.equals(1, move(b, 1))
+      assert.equals(1, move(b, 3))
+    end)
+
+    it("keeps the column for vertical moves", function()
+      local b = setup_collapsed()
+      vim.api.nvim_buf_set_lines(b, 0, 1, false, { "intro text" })
+      vim.api.nvim_buf_set_lines(b, 6, 7, false, { "after text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 })
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = b })
+      vim.cmd("normal! j")
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = b })
+      assert.same({ 7, 6 }, vim.api.nvim_win_get_cursor(0))
     end)
   end)
 end)

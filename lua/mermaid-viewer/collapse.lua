@@ -18,6 +18,9 @@ local states = {}
 
 local EDIT_MODES = "[iRvVsS\22\19]"
 
+---@type table<number, number> window -> cursor row seen by the last CursorMoved, for the direction of a move
+local last_row = {}
+
 ---@param buf number
 ---@return mermaid_viewer.CollapseState
 local function state_for(buf)
@@ -59,6 +62,54 @@ function M.hides(buf, row)
     end
   end
   return false
+end
+
+--- Hidden range containing `row`
+---@param buf number
+---@param row number 0-based
+---@return number|nil start_row
+---@return number|nil end_row
+local function hidden_range(buf, row)
+  local marks = vim.api.nvim_buf_get_extmarks(buf, ns, { row, 0 }, { row, -1 }, { overlap = true, details = true })
+  for _, m in ipairs(marks) do
+    local last = m[4].end_row or m[2]
+    if m[4].conceal_lines and m[2] <= row and last >= row then
+      return m[2], last
+    end
+  end
+end
+
+--- Keep the cursor off hidden lines, so a collapsed block takes a single j/k: a cursor that lands on one moves on to
+--- the first visible row in the direction it was moving (back the other way at the buffer edge), keeping curswant.
+---@param buf number
+function M.skip_hidden(buf)
+  local win = vim.api.nvim_get_current_win()
+  local row = vim.api.nvim_win_get_cursor(win)[1] - 1
+  local prev = last_row[win]
+  local down = prev == nil or row >= prev
+  local count = vim.api.nvim_buf_line_count(buf)
+  local target = row
+  for _ = 1, 2 do
+    local start, finish = hidden_range(buf, target)
+    while start do
+      target = down and finish + 1 or start - 1
+      if target < 0 or target >= count then
+        break
+      end
+      start, finish = hidden_range(buf, target)
+    end
+    if target >= 0 and target < count then
+      break
+    end
+    down, target = not down, row
+  end
+  if target ~= row and target >= 0 and target < count then
+    local want = math.min(vim.fn.winsaveview().curswant, 100000)
+    local col = vim.fn.virtcol2col(win, target + 1, want + 1)
+    vim.fn.cursor({ target + 1, math.max(col, 1), 0, want + 1 })
+    row = target
+  end
+  last_row[win] = row
 end
 
 ---@param st mermaid_viewer.CollapseState
@@ -241,9 +292,13 @@ local function ensure_autocmds()
     group = group,
     callback = function(ev)
       local st = states[ev.buf]
-      if st and next(st.expanded) and vim.fn.mode():sub(1, 1) == "n" then
+      if not st then
+        return
+      end
+      if next(st.expanded) and vim.fn.mode():sub(1, 1) == "n" then
         M.on_mode(ev.buf, "n")
       end
+      M.skip_hidden(ev.buf)
     end,
   })
   vim.api.nvim_create_autocmd("BufWinEnter", {
@@ -321,6 +376,7 @@ function M._reset()
     M.clear(buf)
   end
   states = {}
+  last_row = {}
   autocmds_ready = false
   pcall(vim.api.nvim_del_augroup_by_name, "MermaidViewerCollapse")
 end

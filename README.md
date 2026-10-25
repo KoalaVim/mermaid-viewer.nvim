@@ -82,7 +82,8 @@ A block can be collapsed so only its diagram remains: its source lines (fences i
 The cursor can be anywhere on the block, on its fences, or on the line its diagram and marker hang from (the line
 after a collapsed block). With no block there, `No mermaid diagram found at cursor` is shown.
 
-A collapsed block stays collapsed while you move over it in normal mode. Entering insert or visual mode with the cursor
+A collapsed block counts as a single line for cursor movement: one `j` or `k` moves past it, keeping your column.
+It stays collapsed while you move over it in normal mode. Entering insert or visual mode with the cursor
 on it expands it so you can edit; once you are back in normal mode and the cursor has left the block, it collapses
 again.
 
