@@ -110,7 +110,8 @@ plain buffer text inside the float and is clipped by it.
 | `:MermaidToggle` | Toggle the viewer |
 
 At 1.0x the whole diagram fits in the float. Zoom in and the float becomes a scrollable canvas: `h` `j` `k` `l` scroll it
-`pan_step` cells per press (default 1; with a count, e.g. `10l`), `H` `J` `K` `L` twice as far, and Neovim's own motions work too: `zh`/`zl`/`zH`/`zL`, `<C-d>`/`<C-u>`,
+`pan_step` cells per press at 1.0x, scaled with the zoom so a press covers the same part of the diagram
+(default 1, so 2 cells at 2.25x; with a count, e.g. `10l`), `H` `J` `K` `L` twice as far, and Neovim's own motions work too: `zh`/`zl`/`zH`/`zL`, `<C-d>`/`<C-u>`,
 `<C-e>`/`<C-y>`, `gg`/`G`, and the mouse wheel. The view stops at the diagram's edges.
 
 | Key (default) | Action                                                   |
@@ -170,7 +171,7 @@ require("mermaid-viewer").setup({
 
   zoom_step = 1.5,          -- zoom multiplier per step
   max_zoom = 5.0,           -- maximum zoom level
-  pan_step = 1,             -- cells h/j/k/l scroll per press (H/J/K/L scroll twice as far)
+  pan_step = 1,             -- cells h/j/k/l scroll per press at 1.0x, times the zoom (H/J/K/L: twice as far)
 
   terminal = {
     placeholders = nil,     -- nil = detect; true/false to force Unicode placeholder support on or off

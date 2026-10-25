@@ -67,13 +67,20 @@ function M.zoom_reset()
   })
 end
 
---- Pan the current viewer by count * pan_step steps
+--- Cells one pan step covers: pan_step at 1.0x, scaled with the zoom so a press covers the same part of the diagram
+---@param s mermaid_viewer.ViewerState
+---@return number
+function M.pan_unit(s)
+  return math.max(1, math.floor(config.options.pan_step * (s.zoom or 1) + 0.5))
+end
+
+--- Pan the current viewer by count pan units
 ---@param dx number
 ---@param dy number
 local function pan(dx, dy)
   local s = state.current
   if s then
-    local step = vim.v.count1 * config.options.pan_step
+    local step = vim.v.count1 * M.pan_unit(s)
     viewer.pan(s, dx * step, dy * step)
   end
 end

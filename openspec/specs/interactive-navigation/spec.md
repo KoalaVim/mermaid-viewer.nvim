@@ -39,7 +39,7 @@ The system SHALL support resetting the zoom level back to fit-to-window (1.0x).
 - **THEN** the zoom level returns to 1.0x and the entire diagram fits within the float
 
 ### Requirement: Configurable navigation keymaps
-The system SHALL allow users to override the default zoom and close keybindings via the `setup()` configuration. `h`/`j`/`k`/`l` scroll the view by `pan_step` cells (default 1) and `H`/`J`/`K`/`L` by twice that; other movement uses Neovim's own motions.
+The system SHALL allow users to override the default zoom and close keybindings via the `setup()` configuration. `h`/`j`/`k`/`l` scroll the view by `pan_step` cells (default 1) times the zoom level, rounded and at least one cell, so a press covers the same part of the diagram at any zoom, and `H`/`J`/`K`/`L` by twice that; other movement uses Neovim's own motions.
 
 #### Scenario: User sets custom keybindings
 - **WHEN** the user configures `keys = { zoom_in = "<C-=>", zoom_out = "<C-->" }` in setup
@@ -54,11 +54,15 @@ When the diagram is larger than the viewer float, the user SHALL be able to move
 
 #### Scenario: Each h/j/k/l press scrolls
 - **WHEN** the diagram is larger than the float and the user presses `l` (or `j`) once
-- **THEN** the view moves right (or down) by `pan_step` cells immediately, wherever the cursor is, and with a count it moves that many times as far
+- **THEN** the view moves right (or down) by one pan step immediately, wherever the cursor is, and with a count it moves that many times as far
+
+#### Scenario: Pan step scales with the zoom
+- **WHEN** `pan_step` is 1, the zoom is 2.25x and the user presses `l`
+- **THEN** the view moves right by 2 cells
 
 #### Scenario: H/J/K/L scroll twice as far
 - **WHEN** the diagram is larger than the float and the user presses `L` (or `J`) once
-- **THEN** the view moves right (or down) by twice `pan_step` cells
+- **THEN** the view moves right (or down) by two pan steps
 
 #### Scenario: Scroll vertically while zoomed in
 - **WHEN** the diagram is taller than the float and the user presses `j`, `<C-d>`, or scrolls the mouse wheel
