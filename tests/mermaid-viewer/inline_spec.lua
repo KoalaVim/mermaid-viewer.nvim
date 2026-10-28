@@ -505,6 +505,88 @@ describe("mermaid-viewer.inline", function()
     end)
   end)
 
+  describe("double-click", function()
+    local function wait_diagram(b)
+      wait_for(function()
+        return #marks(b) == 1 and #marks(b)[1][4].virt_lines > 1
+      end, "diagram")
+      vim.cmd("redraw")
+      return marks(b)[1]
+    end
+
+    local function click(line, screenrow)
+      return { winid = vim.api.nvim_get_current_win(), line = line, screenrow = screenrow }
+    end
+
+    it("finds the diagram above a fence and opens it in the viewer; text keeps the default", function()
+      local b = make_buf(concat({ "intro" }, TALL, { "after" }))
+      inline.enable(b)
+      local m = wait_diagram(b)
+      local win = vim.api.nvim_get_current_win()
+      local fence = vim.fn.screenpos(win, 2, 1).row
+      local n = #m[4].virt_lines
+      assert.equals(m[1], inline.diagram_at_mouse(click(2, fence - 1)))
+      assert.equals(m[1], inline.diagram_at_mouse(click(2, fence - n)))
+      assert.is_nil(inline.diagram_at_mouse(click(2, fence)))
+      assert.is_nil(inline.diagram_at_mouse(click(1, vim.fn.screenpos(win, 1, 1).row)))
+
+      local viewed = {}
+      require("mermaid-viewer").view = function(o)
+        viewed[#viewed + 1] = o
+      end
+      local map = vim.fn.maparg("<2-LeftMouse>", "n", false, true)
+      assert.equals(1, map.buffer)
+      assert.equals(1, vim.fn.maparg("<2-LeftMouse>", "t", false, true).buffer)
+      local orig = vim.fn.getmousepos
+      vim.fn.getmousepos = function()
+        return click(2, fence - 1)
+      end
+      local on_diagram = map.callback()
+      vim.fn.getmousepos = function()
+        return click(2, fence)
+      end
+      local on_text = map.callback()
+      vim.fn.getmousepos = orig
+      assert.equals("", on_diagram)
+      assert.equals("<2-LeftMouse>", on_text)
+      wait_for(function()
+        return #viewed == 1
+      end, "viewer opened")
+      assert.equals(m[1], viewed[1].block)
+
+      inline.disable(b)
+      assert.is_true(vim.tbl_isempty(vim.fn.maparg("<2-LeftMouse>", "n", false, true)))
+    end)
+
+    it("finds a terminal diagram drawn under its last line", function()
+      local b = make_buf({ "  out", "  flowchart TD", "      A --> B", "  after" }, { ft = "sidekick_terminal" })
+      inline.enable(b)
+      local m = wait_diagram(b)
+      local win = vim.api.nvim_get_current_win()
+      local nxt = vim.fn.screenpos(win, 4, 1).row
+      assert.equals(m[1], inline.diagram_at_mouse(click(4, nxt - 1)))
+      assert.equals(m[1], inline.diagram_at_mouse(click(4, nxt - #m[4].virt_lines)))
+      assert.is_nil(inline.diagram_at_mouse(click(4, nxt)))
+      assert.is_nil(inline.diagram_at_mouse(click(3, vim.fn.screenpos(win, 3, 1).row)))
+    end)
+
+    it("finds a diagram under the last line of a .mmd buffer", function()
+      local b = make_buf({ "graph TD", "  A --> B" }, { ft = "mermaid" })
+      inline.enable(b)
+      local m = wait_diagram(b)
+      local last = vim.fn.screenpos(vim.api.nvim_get_current_win(), 2, 1).row
+      assert.equals(m[1], inline.diagram_at_mouse(click(2, last + 1)))
+      assert.is_nil(inline.diagram_at_mouse(click(2, last + #m[4].virt_lines + 1)))
+    end)
+
+    it("is not mapped with inline.double_click = false", function()
+      config.setup({ terminal = { placeholders = true }, inline = { double_click = false } })
+      local b = make_buf(TALL)
+      inline.enable(b)
+      assert.is_true(vim.tbl_isempty(vim.fn.maparg("<2-LeftMouse>", "n", false, true)))
+    end)
+  end)
+
   describe("block_at", function()
     it("covers the block's lines and fences only while expanded", function()
       local b = make_buf(concat({ "intro" }, TALL, { "after" }))

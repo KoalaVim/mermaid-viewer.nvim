@@ -38,6 +38,7 @@ local SCROLL_DEBOUNCE_MS = 100
 ---@field pending table<number, { hash: string, text_w: number, text_h: number }>
 ---@field cache? { tick: number, list: mermaid_viewer.InlineBlock[] }
 ---@field scanning? boolean a scan triggered by update_visible is running
+---@field click? boolean the double-click mapping is set
 
 ---@type table<number, mermaid_viewer.InlineState>
 local states = {}
@@ -358,6 +359,100 @@ function M.block_at(buf, row)
   return nil
 end
 
+---@param buf number
+---@param row number 0-based
+---@param above boolean
+---@return { id: number, n: number }[] our extmarks on the row whose virt_lines hang on that side
+local function virt_marks(buf, row, above)
+  local out = {}
+  for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, ns, { row, 0 }, { row, -1 }, { details = true })) do
+    local d = m[4]
+    if d.virt_lines and (d.virt_lines_above or false) == above then
+      out[#out + 1] = { id = m[1], n = #d.virt_lines }
+    end
+  end
+  return out
+end
+
+---@param list { id: number, n: number }[]
+---@param offset number 1-based virtual line, counted from the text line outwards
+---@return number|nil
+local function mark_at(list, offset)
+  for _, m in ipairs(list) do
+    if offset <= m.n then
+      return m.id
+    end
+    offset = offset - m.n
+  end
+end
+
+--- Block (anchor id) whose inline diagram (or collapse marker) is drawn at the mouse position; nil on buffer text.
+--- Neovim reports a click on virtual lines as a click on the text line below them.
+---@param pos vim.fn.getmousepos.ret
+---@return number|nil anchor_id
+function M.diagram_at_mouse(pos)
+  if pos.winid == 0 or pos.line == 0 or not vim.api.nvim_win_is_valid(pos.winid) then
+    return nil
+  end
+  local buf = vim.api.nvim_win_get_buf(pos.winid)
+  if not states[buf] then
+    return nil
+  end
+  local row = pos.line - 1
+  local top = vim.fn.screenpos(pos.winid, pos.line, 1).row
+  if top == 0 then
+    return nil
+  end
+  if pos.screenrow < top then
+    local offset = top - pos.screenrow
+    local list = virt_marks(buf, row, true)
+    local id = mark_at(list, offset)
+    if id or row == 0 then
+      return id
+    end
+    for _, m in ipairs(list) do
+      offset = offset - m.n
+    end
+    -- the previous line's lines below, counted from the bottom up
+    local below = virt_marks(buf, row - 1, false)
+    local total = 0
+    for _, m in ipairs(below) do
+      total = total + m.n
+    end
+    return mark_at(below, total - offset + 1)
+  end
+  local text = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+  local bottom = vim.fn.screenpos(pos.winid, pos.line, math.max(1, #text)).row
+  if pos.screenrow > bottom then
+    return mark_at(virt_marks(buf, row, false), pos.screenrow - bottom)
+  end
+  return nil
+end
+
+--- Double-click on an inline diagram: open it in the viewer; elsewhere keep the default double-click
+---@return string
+local function on_double_click()
+  local pos = vim.fn.getmousepos()
+  local id = M.diagram_at_mouse(pos)
+  if not id then
+    return "<2-LeftMouse>"
+  end
+  vim.schedule(function()
+    if not vim.api.nvim_win_is_valid(pos.winid) then
+      return
+    end
+    vim.api.nvim_set_current_win(pos.winid)
+    local viewer = require("mermaid-viewer")
+    if require("mermaid-viewer.state").is_active() then
+      viewer.close()
+    end
+    viewer.view({ block = id })
+  end)
+  return ""
+end
+
+local CLICK_MODES = { "n", "t" }
+
 --- Remove diagrams, markers and collapses from a buffer and release its images; other buffers are unaffected
 ---@param buf number
 local function teardown(buf)
@@ -376,6 +471,11 @@ local function teardown(buf)
   blocks.detach(buf)
   if vim.api.nvim_buf_is_valid(buf) then
     vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+    if st.click then
+      for _, mode in ipairs(CLICK_MODES) do
+        pcall(vim.keymap.del, mode, "<2-LeftMouse>", { buffer = buf })
+      end
+    end
   end
 end
 
@@ -478,6 +578,14 @@ function M.enable(buf)
   local st = { entries = {}, tokens = {}, pending = {} }
   states[buf] = st
   ensure_view_autocmds()
+  if config.options.inline.double_click then
+    st.click = true
+    vim.keymap.set(CLICK_MODES, "<2-LeftMouse>", on_double_click, {
+      buffer = buf,
+      expr = true,
+      desc = "Open the diagram under the mouse in the mermaid viewer",
+    })
+  end
   blocks.attach(buf, function(diff)
     if states[buf] == st then
       on_diff(buf, st, diff)

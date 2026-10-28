@@ -145,3 +145,18 @@ When `inline.collapse` is `true` (default `true`), each mermaid block SHALL be c
 #### Scenario: User expands an auto-collapsed block
 - **WHEN** the user expands an auto-collapsed block with `:MermaidCollapse` and edits it
 - **THEN** the block stays expanded after it re-renders
+
+### Requirement: Double-click opens an inline diagram
+When `inline.double_click` is `true` (default `true`), double-clicking an inline diagram or collapse marker SHALL open that diagram in the viewer, closing any viewer already open. A double-click on buffer text SHALL keep Neovim's default behaviour. The mapping SHALL be buffer-local to buffers with inline rendering on, in normal and terminal mode, and SHALL be removed when inline rendering is turned off.
+
+#### Scenario: Double-click on a diagram
+- **WHEN** the user double-clicks a row of an inline diagram in a markdown, mermaid or agent terminal buffer
+- **THEN** the viewer opens showing that diagram
+
+#### Scenario: Double-click on text
+- **WHEN** the user double-clicks buffer text, including a block's own lines
+- **THEN** Neovim's default double-click runs and no viewer opens
+
+#### Scenario: Disabled
+- **WHEN** `inline.double_click` is `false`
+- **THEN** `<2-LeftMouse>` is not mapped

@@ -41,10 +41,11 @@ local defaults = {
   },
   ---@type string[]
   terminal_filetypes = { "sidekick_terminal" },
-  ---@type { enabled: boolean, collapse: boolean, scale: number, max_width: number, max_height: number }
+  ---@type { enabled: boolean, collapse: boolean, double_click: boolean, scale: number, max_width: number, max_height: number }
   inline = {
     enabled = true,
     collapse = true,
+    double_click = true,
     scale = 1.0,
     max_width = 1.0,
     max_height = 40,
@@ -119,6 +120,7 @@ function M.validate(cfg)
     inline = { cfg.inline, "table" },
     ["inline.enabled"] = { cfg.inline.enabled, "boolean" },
     ["inline.collapse"] = { cfg.inline.collapse, "boolean" },
+    ["inline.double_click"] = { cfg.inline.double_click, "boolean" },
     ["inline.scale"] = { cfg.inline.scale, "number" },
     ["inline.max_width"] = { cfg.inline.max_width, "number" },
     ["inline.max_height"] = { cfg.inline.max_height, "number" },

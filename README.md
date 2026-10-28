@@ -77,6 +77,11 @@ the current buffer.
 | -------------------------------------- | ------------------------------------------------------ |
 | `:MermaidInline`                       | Toggle inline rendering in the current buffer          |
 | `<Plug>(mermaid-viewer-inline-toggle)` | Same, for use in your own mappings                     |
+| `<2-LeftMouse>` on a diagram           | Open that diagram in the viewer                        |
+
+Double-clicking an inline diagram (or a collapse marker) opens it in the viewer, replacing any diagram already open
+there. Double-clicking buffer text keeps Neovim's usual behaviour. This needs `mouse` enabled; set
+`inline = { double_click = false }` to leave `<2-LeftMouse>` unmapped.
 
 Turning it off removes all diagrams and collapse markers from that buffer (collapsed blocks become visible again) and
 frees their images; other buffers are unaffected. Turning it on again renders every block. On other buffers the command
@@ -164,6 +169,7 @@ require("mermaid-viewer").setup({
   inline = {
     enabled = true,         -- render markdown, mermaid and agent terminal buffers inline automatically
     collapse = true,        -- collapse each block once its diagram has rendered
+    double_click = true,    -- double-click an inline diagram to open it in the viewer
     scale = 1.0,            -- size relative to the editor font (1.0 = diagram text about as tall as a row)
     max_width = 1.0,        -- <= 1: fraction of the window text width, > 1: cells
     max_height = 40,        -- <= 1: fraction of the window height, > 1: rows

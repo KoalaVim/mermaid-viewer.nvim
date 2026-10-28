@@ -17,12 +17,21 @@ end
 --- Bind the viewer to the diagram under the cursor (markdown and agent terminals; in markdown also from the line just
 --- above a block, where its inline diagram is drawn) or the whole buffer (.mmd / mermaid)
 ---@param buf number
+---@param block_id? number anchor id of the block to view instead of the one under the cursor
 ---@return mermaid_viewer.ViewerSource|nil
 ---@return string|nil err
-local function resolve_source(buf)
+local function resolve_source(buf, block_id)
   local source = require("mermaid-viewer.source")
   local viewer = require("mermaid-viewer.viewer")
   local kind = source.kind(buf)
+
+  if (kind == "markdown" or kind == "terminal") and block_id then
+    local block = require("mermaid-viewer.blocks").get(buf, block_id)
+    if not block then
+      return nil, "Mermaid block no longer exists"
+    end
+    return { buf = buf, mark = viewer.anchor(buf, block.start_row) }
+  end
 
   if kind == "markdown" or kind == "terminal" then
     local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
@@ -118,14 +127,15 @@ local function on_open(s)
   end
 end
 
-function M.view()
+---@param opts? { block?: number } `block`: anchor id of the diagram to view instead of the one under the cursor
+function M.view(opts)
   local state = require("mermaid-viewer.state")
   if state.is_active() or state.opening then
     return
   end
 
   local viewer = require("mermaid-viewer.viewer")
-  local src, err = resolve_source(vim.api.nvim_get_current_buf())
+  local src, err = resolve_source(vim.api.nvim_get_current_buf(), opts and opts.block)
   if not src then
     notify(err or "No mermaid diagram found")
     return
