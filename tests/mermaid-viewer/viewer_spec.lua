@@ -582,4 +582,114 @@ describe("mermaid-viewer viewer", function()
     assert.is_not_nil(s)
     assert.is_nil(config.options.keys.pan_up)
   end)
+
+  describe("mouse", function()
+    local real_pos
+
+    before_each(function()
+      real_pos = vim.fn.getmousepos
+    end)
+
+    after_each(function()
+      vim.fn.getmousepos = real_pos
+    end)
+
+    --- Run the float buffer's mapping for lhs with the pointer at pos
+    local function mouse(s, lhs, pos)
+      vim.fn.getmousepos = function()
+        return vim.tbl_extend("keep", pos, { winid = s.win, line = 1, column = 1, screenrow = 1, screencol = 1 })
+      end
+      local map = vim.fn.maparg(lhs, "n", false, true)
+      assert.equals(1, map.buffer, lhs .. " is not mapped")
+      return map.callback()
+    end
+
+    local function view(s)
+      return vim.api.nvim_win_call(s.win, vim.fn.winsaveview)
+    end
+
+    local function zoomed(times)
+      local s = open(markdown(WIDE))
+      for i = 1, times do
+        nav.zoom_in()
+        wait_zoom(s, function()
+          return math.abs(s.zoom - 1.5 ^ i) < 1e-6
+        end)
+      end
+      return s
+    end
+
+    it("drags the image with the pointer and stops at the edges", function()
+      local s = zoomed(2)
+      local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
+      assert.is_true(s.cols > w)
+      vim.api.nvim_win_call(s.win, function()
+        vim.fn.winrestview({ topline = 1, leftcol = 0, lnum = 1, col = 0 })
+      end)
+      assert.equals("", mouse(s, "<LeftMouse>", { screenrow = 10, screencol = 20 }))
+      assert.equals("", mouse(s, "<LeftDrag>", { screenrow = 8, screencol = 17 }))
+      vim.wait(50)
+      assert.equals(3, view(s).leftcol)
+      assert.equals(math.min(2, s.rows - h) + 1, view(s).topline)
+      mouse(s, "<LeftDrag>", { screenrow = -500, screencol = -500 })
+      vim.wait(50)
+      assert.equals(s.cols - w, view(s).leftcol)
+      assert.equals(math.max(1, s.rows - h + 1), view(s).topline)
+      assert.equals("", mouse(s, "<LeftRelease>", {}))
+      -- a drag that did not start in the float keeps its default
+      assert.equals("<LeftDrag>", mouse(s, "<LeftDrag>", {}))
+    end)
+
+    it("zooms toward the pointer with Ctrl+wheel, one zoom per burst", function()
+      local s = zoomed(1)
+      local refreshes = 0
+      local viewer = require("mermaid-viewer.viewer")
+      local real_refresh = viewer.refresh
+      viewer.refresh = function(...)
+        refreshes = refreshes + 1
+        return real_refresh(...)
+      end
+      local gx, gy = math.floor(s.cols * 0.7), math.floor(s.rows / 2)
+      local line = vim.api.nvim_buf_get_lines(s.buf, gy, gy + 1, false)[1]
+      local pos = { winid = s.win, line = gy + 1, column = vim.fn.byteidx(line, gx) + 1 }
+      local f = require("mermaid-viewer.mouse").focus(s, pos)
+      assert.same({ gx, gy }, { f.gx, f.gy })
+      local frac = (gx + 0.5) / s.cols
+      for _ = 1, 2 do
+        mouse(s, "<C-ScrollWheelUp>", pos)
+      end
+      wait_zoom(s, function()
+        return math.abs(s.zoom - 1.5 ^ 3) < 1e-6
+      end)
+      viewer.refresh = real_refresh
+      assert.equals(1, refreshes)
+      local under = (view(s).leftcol + f.ox + 0.5) / s.cols
+      assert.is_true(math.abs(under - frac) < 0.05, ("%f vs %f"):format(under, frac))
+      mouse(s, "<C-ScrollWheelDown>", pos)
+      wait_zoom(s, function()
+        return math.abs(s.zoom - 1.5 ^ 2) < 1e-6
+      end)
+    end)
+
+    it("closes when clicking outside the float, and lets the click through", function()
+      local s = open(markdown())
+      local other = vim.fn.win_getid(vim.fn.winnr("#"))
+      assert.equals("<LeftMouse>", mouse(s, "<LeftMouse>", { winid = other ~= 0 and other or 1000 }))
+      assert.is_true(wait_for(function()
+        return state.current == nil
+      end))
+    end)
+
+    it("swallows multi-clicks in the float", function()
+      local s = open(markdown())
+      assert.equals("<Nop>", vim.fn.maparg("<2-LeftMouse>", "n", false, true).rhs)
+      assert.is_not_nil(s)
+    end)
+
+    it("sets no mouse mappings with float.mouse = false", function()
+      config.setup({ debounce_ms = 40, terminal = { placeholders = true }, float = { mouse = false } })
+      open(markdown())
+      assert.is_true(vim.tbl_isempty(vim.fn.maparg("<LeftDrag>", "n", false, true)))
+    end)
+  end)
 end)

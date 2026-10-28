@@ -96,7 +96,7 @@ describe("mermaid-viewer.config", function()
       theme = "dark",
       debounce_ms = 42,
       fast_text = true,
-      float = { width = 0.5, height = 0.5, border = "single" },
+      float = { width = 0.5, height = 0.5, border = "single", mouse = false },
       keys = {
         zoom_in = "=",
         zoom_out = "_",
@@ -112,7 +112,7 @@ describe("mermaid-viewer.config", function()
     assert.equals("dark", config.options.theme)
     assert.equals(42, config.options.debounce_ms)
     assert.equals(true, config.options.fast_text)
-    assert.same({ width = 0.5, height = 0.5, border = "single", win_config = {} }, config.options.float)
+    assert.same({ width = 0.5, height = 0.5, border = "single", mouse = false, win_config = {} }, config.options.float)
     assert.equals(false, config.options.auto_update)
     assert.equals(2, config.options.zoom_step)
     assert.equals(10, config.options.max_zoom)

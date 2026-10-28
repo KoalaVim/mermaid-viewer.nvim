@@ -139,6 +139,17 @@ At 1.0x the whole diagram fits in the float. Zoom in and the float becomes a scr
 | `0`           | Reset to 1.0x, view at the top-left (`keys.zoom_reset`) |
 | `q` / `<Esc>` | Close (`keys.close`)                                     |
 
+The mouse works like on an image in a web page (`float.mouse`, default `true`; needs `mouse` enabled):
+
+| Mouse                       | Action                                         |
+| --------------------------- | ---------------------------------------------- |
+| Drag                        | Move the diagram with the pointer              |
+| Wheel / trackpad            | Scroll, vertically and horizontally            |
+| `Ctrl` + wheel              | Zoom in/out, keeping the point under the pointer in place |
+| Click outside the float     | Close the viewer (the click still goes through) |
+
+Ctrl+wheel needs a terminal that passes Ctrl with wheel events to Neovim; a trackpad pinch is not passed by terminals.
+
 Zoom keeps the cell in the middle of the view centered, and stops at `max_zoom` (default 5.0) or when the diagram would
 exceed 297 cells on a side. Editing the block while the viewer is open re-renders it (`auto_update`, debounced by
 `debounce_ms`), also with focus in the float. Closing the float any way (`q`, `:q`, `<C-w>c`) removes the image and sends the inline diagrams to the terminal again,
@@ -179,6 +190,7 @@ require("mermaid-viewer").setup({
     width = 0.8,            -- max float width as percentage of editor (0.0-1.0)
     height = 0.8,           -- max float height as percentage of editor (0.0-1.0)
     border = "rounded",     -- border style
+    mouse = true,           -- drag to pan, Ctrl+wheel to zoom at the pointer, click outside to close
     win_config = {},        -- passed to nvim_open_win, overriding the computed config (see below)
   },
 

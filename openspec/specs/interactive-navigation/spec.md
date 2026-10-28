@@ -71,3 +71,22 @@ When the diagram is larger than the viewer float, the user SHALL be able to move
 #### Scenario: At fit-to-window zoom
 - **WHEN** the whole diagram fits in the float and the user presses a motion key
 - **THEN** the view does not move away from the diagram
+
+### Requirement: Mouse navigation in the viewer
+When `float.mouse` is `true` (default `true`), the viewer float SHALL respond to the mouse like an image on a web page: dragging moves the diagram with the pointer, the wheel scrolls natively, Ctrl+wheel zooms keeping the point under the pointer in place, and a click outside the float closes the viewer and still reaches its target. Multi-clicks in the float SHALL NOT select text.
+
+#### Scenario: Drag to pan
+- **WHEN** the diagram is larger than the float and the user drags it 3 cells left and 2 rows up
+- **THEN** the view moves 3 columns right and 2 rows down, stopping at the diagram's edges
+
+#### Scenario: Ctrl+wheel zooms at the pointer
+- **WHEN** the user scrolls up with Ctrl held over a point of the diagram
+- **THEN** the diagram zooms in one `zoom_step` per tick, applied as a single zoom per burst, and that point stays under the pointer
+
+#### Scenario: Click outside closes
+- **WHEN** the viewer has focus and the user clicks outside the float
+- **THEN** the viewer closes and the click lands where the user clicked
+
+#### Scenario: Mouse controls off
+- **WHEN** `float.mouse` is `false`
+- **THEN** the float sets no mouse mappings

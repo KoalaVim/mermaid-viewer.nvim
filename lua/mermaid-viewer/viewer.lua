@@ -155,17 +155,19 @@ local function write_grid(s, img, cols, rows)
   end
 end
 
---- View for a grid of cols x rows shown in a nw x nh window: keeps the cell at `center` (fractions of the grid) in the
---- middle, or top-left when center is nil
+--- View for a grid of cols x rows shown in a nw x nh window: puts the point at `center` (fractions of the grid) at the
+--- window offset (ox, oy) (default: the middle), or the top-left when center is nil
+---@param center? { x: number, y: number, ox?: number, oy?: number }
 ---@return vim.fn.winrestview.dict
 local function view_for(s, cols, rows, nw, nh, center)
-  local leftcol, topline = 0, 1
+  local leftcol, topline, ox, oy = 0, 1, 0, 0
   if center then
-    leftcol = clamp(round(center.x * cols - nw / 2), 0, math.max(0, cols - nw))
-    topline = clamp(round(center.y * rows - nh / 2) + 1, 1, math.max(1, rows - nh + 1))
+    ox, oy = center.ox or nw / 2, center.oy or nh / 2
+    leftcol = clamp(round(center.x * cols - ox), 0, math.max(0, cols - nw))
+    topline = clamp(round(center.y * rows - oy) + 1, 1, math.max(1, rows - nh + 1))
   end
-  local lnum = clamp(topline + (center and math.floor(nh / 2) or 0), 1, rows)
-  local cell = leftcol + (center and math.floor(nw / 2) or 0)
+  local lnum = clamp(topline + math.floor(oy), 1, rows)
+  local cell = math.min(leftcol + math.floor(ox), cols - 1)
   local line = vim.api.nvim_buf_get_lines(s.buf, lnum - 1, lnum, false)[1] or ""
   local col = math.max(0, vim.fn.byteidx(line, cell))
   return { topline = topline, leftcol = leftcol, lnum = lnum, col = col, curswant = cell }
@@ -178,7 +180,7 @@ end
 ---@param hash string
 ---@param result mermaid_viewer.DiagramResult
 ---@param zoom number
----@param opts { reset?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState) }
+---@param opts { reset?: boolean, focus?: mermaid_viewer.Focus, on_open?: fun(s: mermaid_viewer.ViewerState) }
 local function show(s, img, key, hash, result, zoom, opts)
   local cols, rows = result.cols, result.rows
   if img.cols ~= cols or img.rows ~= rows then
@@ -194,6 +196,15 @@ local function show(s, img, key, hash, result, zoom, opts)
   if not s.win then
     s.win, s.buf = create_window(cols, rows)
     opened = true
+  elseif opts.focus then
+    -- keep the grid cell under the pointer under the pointer
+    local f = opts.focus
+    center = {
+      x = (f.gx + 0.5) / s.cols,
+      y = (f.gy + 0.5) / s.rows,
+      ox = clamp(f.ox + 0.5, 0.5, nw - 0.5),
+      oy = clamp(f.oy + 0.5, 0.5, nh - 0.5),
+    }
   elseif not opts.reset then
     local ow, oh = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
     local old = vim.api.nvim_win_call(s.win, vim.fn.winsaveview)
@@ -224,7 +235,7 @@ end
 --- Render the bound source at the requested zoom and swap it into the float (opening the float on first success).
 --- Results of superseded requests are dropped.
 ---@param s mermaid_viewer.ViewerState
----@param opts? { zoom?: number, reset?: boolean, silent?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState), on_missing?: fun(err: string), on_error?: fun(err: string) }
+---@param opts? { zoom?: number, reset?: boolean, focus?: mermaid_viewer.Focus, silent?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState), on_missing?: fun(err: string), on_error?: fun(err: string) }
 function M.refresh(s, opts)
   opts = opts or {}
   local text, err = M.source_text(s.source)
@@ -302,8 +313,28 @@ function M.clamp_view(s)
   end)
 end
 
---- Move the view by dx columns and dy rows, stopping at the diagram's edges. The cursor goes to the middle of the
---- new view, so later native motions start from there.
+--- Show the grid from column `left` and row `top` (0-based), stopping at the diagram's edges. The cursor goes to the
+--- middle of the new view, so later native motions start from there.
+---@param s mermaid_viewer.ViewerState
+---@param left number
+---@param top number
+function M.pan_to(s, left, top)
+  if not s.win or not vim.api.nvim_win_is_valid(s.win) then
+    return
+  end
+  local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
+  vim.api.nvim_win_call(s.win, function()
+    left = clamp(left, 0, math.max(0, s.cols - w))
+    top = clamp(top + 1, 1, math.max(1, s.rows - h + 1))
+    local lnum = clamp(top + math.floor(h / 2), 1, s.rows)
+    local cell = math.min(left + math.floor(w / 2), s.cols - 1)
+    local line = vim.api.nvim_buf_get_lines(s.buf, lnum - 1, lnum, false)[1] or ""
+    local col = math.max(0, vim.fn.byteidx(line, cell))
+    vim.fn.winrestview({ topline = top, leftcol = left, lnum = lnum, col = col, curswant = cell })
+  end)
+end
+
+--- Move the view by dx columns and dy rows (see pan_to)
 ---@param s mermaid_viewer.ViewerState
 ---@param dx number
 ---@param dy number
@@ -311,17 +342,8 @@ function M.pan(s, dx, dy)
   if not s.win or not vim.api.nvim_win_is_valid(s.win) then
     return
   end
-  local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
-  vim.api.nvim_win_call(s.win, function()
-    local v = vim.fn.winsaveview()
-    local left = clamp(v.leftcol + dx, 0, math.max(0, s.cols - w))
-    local top = clamp(v.topline + dy, 1, math.max(1, s.rows - h + 1))
-    local lnum = clamp(top + math.floor(h / 2), 1, s.rows)
-    local cell = math.min(left + math.floor(w / 2), s.cols - 1)
-    local line = vim.api.nvim_buf_get_lines(s.buf, lnum - 1, lnum, false)[1] or ""
-    local col = math.max(0, vim.fn.byteidx(line, cell))
-    vim.fn.winrestview({ topline = top, leftcol = left, lnum = lnum, col = col, curswant = cell })
-  end)
+  local v = vim.api.nvim_win_call(s.win, vim.fn.winsaveview)
+  M.pan_to(s, v.leftcol + dx, v.topline - 1 + dy)
 end
 
 --- Close the float window (the buffer is wiped with it)

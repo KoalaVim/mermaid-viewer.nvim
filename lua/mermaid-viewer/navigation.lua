@@ -7,14 +7,17 @@ local viewer = require("mermaid-viewer.viewer")
 
 local EPS = 1e-6
 
+--- Zoom to a level, keeping the window centre (or the focus cell) in place
 ---@param zoom number
-local function zoom_to(zoom)
+---@param focus? mermaid_viewer.Focus
+function M.zoom_to(zoom, focus)
   local s = state.current
   if not s then
     return
   end
   viewer.refresh(s, {
     zoom = zoom,
+    focus = focus,
     on_error = function(err)
       vim.notify(err, vim.log.levels.ERROR, { title = "mermaid-viewer" })
     end,
@@ -32,7 +35,7 @@ function M.zoom_in()
   end
   local target = math.min(s.zoom_req * config.options.zoom_step, viewer.zoom_cap(s.aspect))
   if target > s.zoom_req + EPS then
-    zoom_to(target)
+    M.zoom_to(target)
   end
 end
 
@@ -43,7 +46,7 @@ function M.zoom_out()
   end
   local target = math.max(s.zoom_req / config.options.zoom_step, 1.0)
   if target < s.zoom_req - EPS then
-    zoom_to(target)
+    M.zoom_to(target)
   end
 end
 
@@ -114,6 +117,9 @@ function M.setup_keymaps(float_buf)
     map(key, function()
       require("mermaid-viewer").close()
     end)
+  end
+  if config.options.float.mouse then
+    require("mermaid-viewer.mouse").setup_keymaps(float_buf)
   end
 end
 
