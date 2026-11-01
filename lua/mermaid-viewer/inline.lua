@@ -210,8 +210,20 @@ local function start_render(buf, st, blk, text_w, text_h)
   st.tokens[id] = token
   st.pending[id] = { hash = hash, text_w = text_w, text_h = text_h }
 
-  local function target(_, natural)
-    return size.inline(natural, config.options.inline, text_w, text_h, kitty.cell_size())
+  local function target(aspect, natural)
+    local cell = kitty.cell_size()
+    local cols, rows = size.inline(natural, config.options.inline, text_w, text_h, cell)
+    require("mermaid-viewer.log").log("inline.size", {
+      buf = buf,
+      block = id,
+      natural = natural,
+      aspect = aspect,
+      text = { text_w, text_h },
+      cell = cell,
+      inline = config.options.inline,
+      grid = { cols, rows },
+    })
+    return cols, rows
   end
 
   render.diagram(blk.content, target, function(err, res)
@@ -223,6 +235,13 @@ local function start_render(buf, st, blk, text_w, text_h)
     st.entries[id] = e
     local old_key = e.key
 
+    require("mermaid-viewer.log").log("inline.rendered", {
+      buf = buf,
+      block = id,
+      err = err,
+      grid = res and { res.cols, res.rows },
+      png_px = res and { res.width_px, res.height_px },
+    })
     if err or not res then
       e.err, e.key, e.hash, e.text_w, e.text_h = err or "render failed", nil, hash, text_w, text_h
     else

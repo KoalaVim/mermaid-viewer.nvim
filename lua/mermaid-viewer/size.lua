@@ -56,10 +56,13 @@ end
 ---@param cols number
 ---@param rows number
 ---@param cell mermaid_viewer.CellSize
+---@param mode? "contain"|"width" contain: the whole diagram fits; width: fills the width, may be taller than rows
 ---@return number, number
-local function fit(aspect, cols, rows, cell)
+local function fit(aspect, cols, rows, cell, mode)
   local w, h = cols * cell.width, rows * cell.height
-  if w / h > aspect then
+  if mode == "width" then
+    h = w / aspect
+  elseif w / h > aspect then
     w = h * aspect
   else
     h = w / aspect
@@ -72,22 +75,37 @@ end
 ---@param cols number Float width in cells
 ---@param rows number Float height in cells
 ---@param cell mermaid_viewer.CellSize
+---@param mode? "contain"|"width" How 1.0x fits the float (float.fit)
 ---@return number
-function M.max_zoom(aspect, cols, rows, cell)
-  local c, r = fit(aspect, cols, rows, cell)
+function M.max_zoom(aspect, cols, rows, cell, mode)
+  local c, r = fit(aspect, cols, rows, cell, mode)
   return M.MAX_CELLS / math.max(c, r)
 end
 
---- Float size at a zoom level: fits the float at 1.0x, scaled by zoom, capped at MAX_CELLS per side
+--- Zoom at which the whole diagram fits the float: 1 with mode "contain", below 1 for a tall diagram with "width"
+---@param aspect number
+---@param cols number Float width in cells
+---@param rows number Float height in cells
+---@param cell mermaid_viewer.CellSize
+---@param mode? "contain"|"width"
+---@return number
+function M.whole_zoom(aspect, cols, rows, cell, mode)
+  local whole = fit(aspect, cols, rows, cell)
+  return whole / fit(aspect, cols, rows, cell, mode)
+end
+
+--- Float size at a zoom level: fits the float at 1.0x (whole diagram, or its width with mode "width"), scaled by
+--- zoom, capped at MAX_CELLS per side
 ---@param aspect number
 ---@param cols number Float width in cells
 ---@param rows number Float height in cells
 ---@param zoom number
 ---@param cell mermaid_viewer.CellSize
+---@param mode? "contain"|"width"
 ---@return number cols
 ---@return number rows
-function M.float(aspect, cols, rows, zoom, cell)
-  local c, r = fit(aspect, cols, rows, cell)
+function M.float(aspect, cols, rows, zoom, cell, mode)
+  local c, r = fit(aspect, cols, rows, cell, mode)
   c, r = c * zoom, r * zoom
   local scale = math.min(1, M.MAX_CELLS / c, M.MAX_CELLS / r)
   c, r = c * scale, r * scale

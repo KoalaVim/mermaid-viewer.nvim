@@ -81,6 +81,16 @@ describe("mermaid-viewer.size", function()
       assert.equals(40, rows)
     end)
 
+    it("fit width fills the float width with a tall diagram, taller than the float", function()
+      local cols, rows = size.float(0.25, 80, 40, 1, cell, "width")
+      assert.equals(80, cols)
+      assert.equals(160, rows)
+      -- a wide diagram fits the same either way
+      assert.same({ size.float(4, 80, 40, 1, cell) }, { size.float(4, 80, 40, 1, cell, "width") })
+      -- the 297-cell cap counts from the width-filled size
+      assert.is_true(size.max_zoom(0.25, 80, 40, cell, "width") < size.max_zoom(0.25, 80, 40, cell))
+    end)
+
     it("multiplies by zoom", function()
       local cols, rows = size.float(4, 80, 40, 2, cell)
       assert.equals(160, cols)

@@ -316,6 +316,68 @@ describe("mermaid-viewer viewer", function()
     assert.equals(n, #commands())
   end)
 
+  it("does not zoom out below 1.0 by default", function()
+    config.setup({ debounce_ms = 40, terminal = { placeholders = true } })
+    local s = open(markdown())
+    local n = #commands()
+    nav.zoom_out()
+    vim.wait(300)
+    assert.equals(1.0, s.zoom)
+    assert.equals(n, #commands())
+  end)
+
+  it("zooms out to min_zoom and resets back to 1.0", function()
+    config.setup({ debounce_ms = 40, min_zoom = 0.5, zoom_step = 1.5, terminal = { placeholders = true } })
+    local s = open(markdown())
+    local cols = s.cols
+    nav.zoom_out()
+    wait_zoom(s, function()
+      return math.abs(s.zoom - 1 / 1.5) < 1e-9
+    end)
+    nav.zoom_out()
+    wait_zoom(s, function()
+      return s.zoom == 0.5
+    end)
+    assert.is_true(s.cols < cols)
+    nav.zoom_out()
+    vim.wait(300)
+    assert.equals(0.5, s.zoom)
+    nav.zoom_reset()
+    wait_zoom(s, function()
+      return s.zoom == 1.0
+    end)
+    assert.equals(cols, s.cols)
+  end)
+
+  it("with float.fit = width zooms out until the whole tall diagram shows", function()
+    config.setup({
+      debounce_ms = 40,
+      zoom_step = 1.5,
+      terminal = { placeholders = true },
+      float = { width = 1, height = 1, fit = "width" },
+    })
+    local tall = { "graph TD" }
+    for i = 1, 4 do
+      tall[#tall + 1] = ("  N%d --> N%d"):format(i, i + 1)
+    end
+    local s = open(markdown(tall))
+    local h = vim.api.nvim_win_get_height(s.win)
+    assert.is_true(s.rows > h)
+    for _ = 1, 20 do
+      local prev = s.zoom
+      nav.zoom_out()
+      if not wait_for(function()
+        return s.zoom ~= prev
+      end, 500) then
+        break
+      end
+    end
+    assert.is_true(s.zoom < 1)
+    -- stopped where the whole diagram fits, not before and not far past it
+    assert.is_true(s.rows <= h, ("grid %dx%d in a window %d high"):format(s.cols, s.rows, h))
+    assert.is_true(s.rows >= h - 1, ("grid %dx%d should reach the window height %d"):format(s.cols, s.rows, h))
+  end)
+
   it("keeps grids within 297 cells", function()
     config.setup({ debounce_ms = 40, max_zoom = 100, terminal = { placeholders = true } })
     local s = open(markdown())
@@ -518,6 +580,29 @@ describe("mermaid-viewer viewer", function()
       assert.is_true(w == vim.o.columns - 2 or h == vim.o.lines - vim.o.cmdheight - 2)
       mv.close()
     end
+  end)
+
+  it("with float.fit = width fills the width with a tall diagram and scrolls from the top", function()
+    config.setup({ debounce_ms = 40, terminal = { placeholders = true }, float = { width = 1, height = 1, fit = "width" } })
+    local tall = { "graph TD" }
+    for i = 1, 4 do
+      tall[#tall + 1] = ("  N%d --> N%d"):format(i, i + 1)
+    end
+    local s = open(markdown(tall))
+    assert.is_not_nil(s)
+    local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
+    assert.equals(vim.o.columns - 2, w)
+    assert.equals(vim.o.lines - vim.o.cmdheight - 2, h)
+    assert.equals(w, s.cols)
+    assert.is_true(s.rows > h, ("grid %dx%d should be taller than the %dx%d window"):format(s.cols, s.rows, w, h))
+    assert.equals(1, vim.api.nvim_win_call(s.win, vim.fn.winsaveview).topline)
+    mv.close()
+  end)
+
+  it("rejects an unknown float.fit", function()
+    assert.has_error(function()
+      config.setup({ float = { fit = "cover" } })
+    end)
   end)
 
   it("refits the float when the editor is resized", function()

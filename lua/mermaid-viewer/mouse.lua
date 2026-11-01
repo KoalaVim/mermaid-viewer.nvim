@@ -86,7 +86,7 @@ local function wheel_zoom(dir)
       return
     end
     local target = s.zoom_req * config.options.zoom_step ^ p.steps
-    target = math.max(1.0, math.min(target, viewer.zoom_cap(s.aspect)))
+    target = math.max(viewer.zoom_floor(s.aspect), math.min(target, viewer.zoom_cap(s.aspect)))
     if math.abs(target - s.zoom_req) > 1e-6 then
       require("mermaid-viewer.navigation").zoom_to(target, p.focus)
     end

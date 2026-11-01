@@ -13,6 +13,7 @@
 ---@field width? number Percentage of editor width (0.0-1.0)
 ---@field height? number Percentage of editor height (0.0-1.0)
 ---@field border? string|string[] Border style for the float window
+---@field fit? "contain"|"width" 1.0x shows the whole diagram ("contain") or fills the float width, scrolling down ("width")
 ---@field mouse? boolean Mouse controls: drag to pan, Ctrl+wheel to zoom at the pointer, click outside to close
 ---@field win_config? vim.api.keyset.win_config Passed to nvim_open_win, overriding the computed size, position and style
 
@@ -51,8 +52,10 @@
 ---@field auto_update? boolean Auto-update on source change
 ---@field zoom_step? number Multiplier per zoom step
 ---@field max_zoom? number Maximum zoom level
+---@field min_zoom? number Minimum zoom level; zooming out always reaches the whole diagram (below 1 with float.fit = "width")
 ---@field pan_step? number Cells h/j/k/l scroll per press at 1.0x, scaled by the zoom (H/J/K/L scroll twice as far)
 ---@field debug? boolean Send graphics with terminal replies enabled and log them (vim.notify at DEBUG level)
+---@field log? boolean Append sizing decisions (editor/cell size, grids, windows) to stdpath("log")/mermaid-viewer.log
 ---@field terminal? mermaid_viewer.TerminalOptions Terminal capability overrides
 ---@field terminal_filetypes? string[] Filetypes of terminal buffers whose output (e.g. an AI agent's) is scanned for diagrams
 ---@field inline? mermaid_viewer.InlineOptions Inline rendering options
@@ -64,13 +67,15 @@
 ---@field theme mermaid_viewer.Theme
 ---@field debounce_ms number
 ---@field fast_text boolean
----@field float { width: number, height: number, border: string|string[], mouse: boolean, win_config: vim.api.keyset.win_config }
+---@field float { width: number, height: number, border: string|string[], fit: "contain"|"width", mouse: boolean, win_config: vim.api.keyset.win_config }
 ---@field keys { zoom_in: string, zoom_out: string, zoom_reset: string, close: string[] }
 ---@field auto_update boolean
 ---@field zoom_step number
 ---@field max_zoom number
+---@field min_zoom number
 ---@field pan_step number
 ---@field debug boolean
+---@field log boolean
 ---@field terminal { placeholders: boolean|nil }
 ---@field terminal_filetypes string[]
 ---@field inline { enabled: boolean, collapse: boolean, double_click: boolean, scale: number, max_width: number, max_height: number }

@@ -233,19 +233,43 @@ end
 
 --- Cell size in pixels, read from the tty via TIOCGWINSZ
 ---@return { width: number, height: number }
+local last_cell_log
+
+---@param source string
+---@param cell mermaid_viewer.CellSize
+---@param raw? table
+---@return mermaid_viewer.CellSize
+local function cell_result(source, cell, raw)
+  local log = require("mermaid-viewer.log")
+  if log.enabled() then
+    local sig = source .. vim.inspect(raw) .. cell.width .. "x" .. cell.height
+    if sig ~= last_cell_log then
+      last_cell_log = sig
+      log.log("cell_size", { source = source, cell = cell, tty = raw, editor = log.editor() })
+    end
+  end
+  return cell
+end
+
 function M.cell_size()
   if not ffi_ok then
-    return FALLBACK_CELL
+    return cell_result("fallback (no ffi)", FALLBACK_CELL)
   end
   local TIOCGWINSZ = ffi.os == "OSX" and 0x40087468 or 0x5413
   local ws = ffi.new("struct mermaid_viewer_winsize")
+  local seen = {}
   for _, fd in ipairs({ 1, 2, 0 }) do
     local ok, ret = pcall(ffi.C.ioctl, fd, TIOCGWINSZ, ws)
-    if ok and ret == 0 and ws.ws_col > 0 and ws.ws_row > 0 and ws.ws_xpixel > 0 and ws.ws_ypixel > 0 then
-      return { width = ws.ws_xpixel / ws.ws_col, height = ws.ws_ypixel / ws.ws_row }
+    local raw = ok and ret == 0 and { fd = fd, col = ws.ws_col, row = ws.ws_row, xpixel = ws.ws_xpixel, ypixel = ws.ws_ypixel }
+      or nil
+    if raw then
+      seen[#seen + 1] = raw
+    end
+    if raw and ws.ws_col > 0 and ws.ws_row > 0 and ws.ws_xpixel > 0 and ws.ws_ypixel > 0 then
+      return cell_result("ioctl", { width = ws.ws_xpixel / ws.ws_col, height = ws.ws_ypixel / ws.ws_row }, raw)
     end
   end
-  return FALLBACK_CELL
+  return cell_result("fallback (tty reported no pixel size)", FALLBACK_CELL, seen)
 end
 
 return M

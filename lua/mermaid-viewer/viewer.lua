@@ -2,6 +2,7 @@
 local M = {}
 
 local config = require("mermaid-viewer.config")
+local log = require("mermaid-viewer.log")
 local cache = require("mermaid-viewer.cache")
 local kitty = require("mermaid-viewer.kitty")
 local registry = require("mermaid-viewer.registry")
@@ -89,7 +90,15 @@ function M.max_size()
   local avail_cols, avail_rows = available()
   local cols = math.min(user.width or math.floor(vim.o.columns * float.width), avail_cols)
   local rows = math.min(user.height or math.floor(vim.o.lines * float.height), avail_rows)
-  return math.max(1, cols), math.max(1, rows)
+  cols, rows = math.max(1, cols), math.max(1, rows)
+  log.log("viewer.max_size", {
+    editor = log.editor(),
+    float = { width = float.width, height = float.height, border = float.border, win_config = user },
+    border_cells = border_cells(),
+    available = { avail_cols, avail_rows },
+    max = { cols, rows },
+  })
+  return cols, rows
 end
 
 ---@param aspect number
@@ -97,8 +106,17 @@ end
 ---@return number
 local function clamp_zoom(aspect, zoom)
   local cols, rows = M.max_size()
-  local cap = math.min(config.options.max_zoom, size.max_zoom(aspect, cols, rows, kitty.cell_size()))
-  return math.max(1, math.min(zoom, cap))
+  local cell, fit = kitty.cell_size(), config.options.float.fit
+  local cap = math.min(config.options.max_zoom, size.max_zoom(aspect, cols, rows, cell, fit))
+  local floor = math.min(config.options.min_zoom, size.whole_zoom(aspect, cols, rows, cell, fit))
+  return math.max(floor, math.min(zoom, math.max(cap, floor)))
+end
+
+--- Lowest zoom allowed for a diagram: config min_zoom, or lower when that still doesn't show the whole diagram
+---@param aspect number
+---@return number
+function M.zoom_floor(aspect)
+  return clamp_zoom(aspect, 0)
 end
 
 --- Highest zoom allowed for a diagram (config max_zoom and the 297-cell cap)
@@ -140,7 +158,13 @@ local function create_window(cols, rows)
   vim.bo[buf].swapfile = false
   vim.bo[buf].modifiable = false
 
-  local win = vim.api.nvim_open_win(buf, true, geometry(math.min(cols, maxc), math.min(rows, maxr)))
+  local win_config = geometry(math.min(cols, maxc), math.min(rows, maxr))
+  local win = vim.api.nvim_open_win(buf, true, win_config)
+  log.log("viewer.open_win", {
+    asked = { win_config.width, win_config.height, row = win_config.row, col = win_config.col, border = win_config.border },
+    got = { vim.api.nvim_win_get_width(win), vim.api.nvim_win_get_height(win) },
+    editor = log.editor(),
+  })
 
   local wo = vim.wo[win]
   wo.wrap = false
@@ -238,6 +262,22 @@ local function show(s, img, key, hash, result, zoom, opts)
   vim.api.nvim_win_call(s.win, function()
     vim.fn.winrestview(view)
   end)
+  if log.enabled() then
+    local wc = vim.api.nvim_win_get_config(s.win)
+    log.log("viewer.show", {
+      grid = { cols, rows },
+      planned_win = { nw, nh },
+      win = { vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win), row = wc.row, col = wc.col },
+      winbar = vim.wo[s.win].winbar ~= "" and vim.wo[s.win].winbar or nil,
+      zoom = zoom,
+      aspect = result.aspect,
+      image = { id = img.id, cols = img.cols, rows = img.rows },
+      png_px = result.width_px and { result.width_px, result.height_px } or nil,
+      view = { topline = view.topline, leftcol = view.leftcol },
+      opened = opened,
+      editor = log.editor(),
+    })
+  end
 
   s.image, s.key, s.hash = img, key, hash
   s.aspect, s.cols, s.rows, s.zoom = result.aspect, cols, rows, zoom
@@ -276,20 +316,27 @@ function M.refresh(s, opts)
     s.gen = s.gen + 1
     zoom = clamp_zoom(s.aspect, want)
     s.zoom_req = zoom
-    local cols, rows = size.float(s.aspect, maxc, maxr, zoom, cell)
+    local cols, rows = size.float(s.aspect, maxc, maxr, zoom, cell, config.options.float.fit)
     local key = s.key
     s.key = nil -- keep the single reference: show releases the previous key
     show(s, s.image, key, hash, { aspect = s.aspect, cols = cols, rows = rows }, zoom, opts)
     return
   end
 
+  log.log("viewer.refresh", {
+    want_zoom = want,
+    rerender = opts.rerender,
+    reset = opts.reset,
+    max = { maxc, maxr },
+    cell = cell,
+  })
   -- Render once at the max-zoom grid (capped by size.pixels); every zoom level shows that image scaled
   local display
   render.diagram(text, function(aspect)
     zoom = clamp_zoom(aspect, want)
     s.zoom_req = zoom
-    display = { size.float(aspect, maxc, maxr, zoom, cell) }
-    return size.float(aspect, maxc, maxr, clamp_zoom(aspect, math.huge), cell)
+    display = { size.float(aspect, maxc, maxr, zoom, cell, config.options.float.fit) }
+    return size.float(aspect, maxc, maxr, clamp_zoom(aspect, math.huge), cell, config.options.float.fit)
   end, function(render_err, result)
     if s.closed or gen ~= s.gen then
       return
@@ -300,6 +347,14 @@ function M.refresh(s, opts)
       end
       return
     end
+    log.log("viewer.rendered", {
+      aspect = result.aspect,
+      natural = require("mermaid-viewer.cache").get_natural(hash),
+      render_grid = { result.cols, result.rows },
+      png_px = { result.width_px, result.height_px },
+      display_grid = display,
+      zoom = zoom,
+    })
     local key = table.concat({ hash, config.options.theme, result.cols .. "x" .. result.rows }, ":")
     local img, acquire_err = registry.acquire(key, result.path, display[1], display[2])
     if not img then
@@ -320,6 +375,7 @@ function M.resized(s)
   if s.closed or not s.win or not vim.api.nvim_win_is_valid(s.win) then
     return
   end
+  log.log("viewer.resized", { editor = log.editor(), zoom = s.zoom_req })
   M.refresh(s, { zoom = s.zoom_req })
   M.refresh(s, { zoom = s.zoom_req, rerender = true })
 end

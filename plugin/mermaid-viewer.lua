@@ -27,6 +27,10 @@ vim.api.nvim_create_user_command("MermaidCollapse", function()
   require("mermaid-viewer.collapse").toggle(vim.api.nvim_get_current_buf(), vim.api.nvim_win_get_cursor(0)[1] - 1)
 end, { desc = "Toggle collapse of the Mermaid diagram under the cursor" })
 
+vim.api.nvim_create_user_command("MermaidLog", function()
+  vim.cmd.edit(vim.fn.fnameescape(require("mermaid-viewer.log").path()))
+end, { desc = "Open the mermaid-viewer log (enable with log = true)" })
+
 vim.keymap.set("n", "<Plug>(mermaid-viewer-view)", function()
   require("mermaid-viewer").view()
 end, { desc = "Open Mermaid diagram viewer" })

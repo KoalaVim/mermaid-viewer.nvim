@@ -121,7 +121,18 @@ function M.cached(source, opts, callback)
     finish(cmd_err, nil)
     return
   end
+  local started = vim.uv.hrtime()
   vim.system(cmd, { text = true }, function(result)
+    local ms = math.floor((vim.uv.hrtime() - started) / 1e6)
+    vim.schedule(function()
+      require("mermaid-viewer.log").log("render", {
+        renderer = config.options.renderer,
+        size = { opts.width, opts.height },
+        ms = ms,
+        code = result.code,
+        stderr = result.code ~= 0 and result.stderr or nil,
+      })
+    end)
     os.remove(input_path)
     if result.code ~= 0 then
       os.remove(output_path)

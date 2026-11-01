@@ -146,7 +146,7 @@ plain buffer text inside the float and is clipped by it.
 | `:MermaidClose`  | Close the viewer  |
 | `:MermaidToggle` | Toggle the viewer |
 
-At 1.0x the whole diagram fits in the float. Zoom in and the float becomes a scrollable canvas: `h` `j` `k` `l` scroll it
+At 1.0x the whole diagram fits in the float (with `float.fit = "width"` it fills the float width instead, and a tall diagram scrolls down). Zoom in and the float becomes a scrollable canvas: `h` `j` `k` `l` scroll it
 `pan_step` cells per press at 1.0x, scaled with the zoom so a press covers the same part of the diagram
 (default 1, so 2 cells at 2.25x; with a count, e.g. `10l`), `H` `J` `K` `L` twice as far, and Neovim's own motions work too: `zh`/`zl`/`zH`/`zL`, `<C-d>`/`<C-u>`,
 `<C-e>`/`<C-y>`, `gg`/`G`, and the mouse wheel. The view stops at the diagram's edges.
@@ -169,7 +169,8 @@ The mouse works like on an image in a web page (`float.mouse`, default `true`; n
 
 Ctrl+wheel needs a terminal that passes Ctrl with wheel events to Neovim; a trackpad pinch is not passed by terminals.
 
-Zoom keeps the cell in the middle of the view centered, and stops at `max_zoom` (default 5.0) or when the diagram would
+Zoom keeps the cell in the middle of the view centered. Zooming out stops at `min_zoom` (default 1.0), or once the whole
+diagram shows when that is lower (with `float.fit = "width"`); zooming in stops at `max_zoom` (default 5.0) or when the diagram would
 exceed 297 cells on a side. Editing the block while the viewer is open re-renders it (`auto_update`, debounced by
 `debounce_ms`), also with focus in the float. Closing the float any way (`q`, `:q`, `<C-w>c`) removes the image and sends the inline diagrams to the terminal again,
 in case large zoomed images pushed them out of its image memory.
@@ -216,6 +217,7 @@ require("mermaid-viewer").setup({
   float = {
     width = 0.8,            -- max float width as percentage of editor (0.0-1.0)
     height = 0.8,           -- max float height as percentage of editor (0.0-1.0)
+    fit = "contain",        -- 1.0x: "contain" shows the whole diagram, "width" fills the float width (scroll down for the rest)
     border = "rounded",     -- border style
     mouse = true,           -- drag to pan, Ctrl+wheel to zoom at the pointer, click outside to close
     win_config = {},        -- passed to nvim_open_win, overriding the computed config (see below)
@@ -230,12 +232,14 @@ require("mermaid-viewer").setup({
 
   zoom_step = 1.5,          -- zoom multiplier per step
   max_zoom = 5.0,           -- maximum zoom level
+  min_zoom = 1.0,           -- minimum zoom level (zooming out always reaches the whole diagram)
   pan_step = 1,             -- cells h/j/k/l scroll per press at 1.0x, times the zoom (H/J/K/L: twice as far)
 
   terminal = {
     placeholders = nil,     -- nil = detect; true/false to force Unicode placeholder support on or off
   },
   debug = false,            -- send graphics with terminal replies enabled and log them
+  log = false,              -- append sizing decisions to stdpath("log")/mermaid-viewer.log (:MermaidLog opens it)
 })
 ```
 

@@ -44,7 +44,7 @@ function M.zoom_out()
   if not s then
     return
   end
-  local target = math.max(s.zoom_req / config.options.zoom_step, 1.0)
+  local target = math.max(s.zoom_req / config.options.zoom_step, viewer.zoom_floor(s.aspect))
   if target < s.zoom_req - EPS then
     M.zoom_to(target)
   end
@@ -56,7 +56,7 @@ function M.zoom_reset()
   if not s then
     return
   end
-  if s.zoom_req <= 1.0 + EPS and s.zoom <= 1.0 + EPS then
+  if math.abs(s.zoom_req - 1.0) <= EPS and math.abs(s.zoom - 1.0) <= EPS then
     vim.api.nvim_win_call(s.win, function()
       vim.fn.winrestview({ topline = 1, leftcol = 0, lnum = 1, col = 0, curswant = 0 })
     end)

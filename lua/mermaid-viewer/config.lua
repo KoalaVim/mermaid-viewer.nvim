@@ -26,6 +26,8 @@ local defaults = {
     width = 0.8,
     height = 0.8,
     border = "rounded",
+    ---@type "contain"|"width"
+    fit = "contain",
     mouse = true,
     win_config = {},
   },
@@ -42,10 +44,13 @@ local defaults = {
   zoom_step = 1.5,
   ---@type number
   max_zoom = 5.0,
+  min_zoom = 1.0,
   ---@type number
   pan_step = 1,
   ---@type boolean
   debug = false,
+  ---@type boolean
+  log = false,
   ---@type { placeholders: boolean|nil }
   terminal = {
     placeholders = nil,
@@ -132,13 +137,22 @@ function M.validate(cfg)
     fast_text = { cfg.fast_text, "boolean" },
     float = { cfg.float, "table" },
     ["float.mouse"] = { cfg.float.mouse, "boolean" },
+    ["float.fit"] = {
+      cfg.float.fit,
+      function(v)
+        return v == "contain" or v == "width"
+      end,
+      '"contain" or "width"',
+    },
     ["float.win_config"] = { cfg.float.win_config, "table" },
     keys = { cfg.keys, "table" },
     auto_update = { cfg.auto_update, "boolean" },
     zoom_step = { cfg.zoom_step, "number" },
     max_zoom = { cfg.max_zoom, "number" },
+    min_zoom = { cfg.min_zoom, "number" },
     pan_step = { cfg.pan_step, "number" },
     debug = { cfg.debug, "boolean" },
+    log = { cfg.log, "boolean" },
     terminal = { cfg.terminal, "table" },
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },
     terminal_filetypes = { cfg.terminal_filetypes, "table" },
