@@ -3,8 +3,18 @@ local M = {}
 
 ---@class mermaid_viewer.InternalConfig
 local defaults = {
+  ---@type mermaid_viewer.Renderer
+  renderer = "mmdr",
   ---@type string
   mmdr_path = "mmdr",
+  ---@type { mermaid_js: string|string[]|nil, node_path: string, puppeteer: string|nil, background: string|nil, classic_colors: boolean }
+  headless_chrome = {
+    mermaid_js = nil,
+    node_path = "node",
+    puppeteer = nil,
+    background = nil,
+    classic_colors = true,
+  },
   ---@type mermaid_viewer.Theme
   theme = "default",
   ---@type number
@@ -103,7 +113,20 @@ end
 ---@param cfg mermaid_viewer.InternalConfig
 function M.validate(cfg)
   vim.validate({
+    renderer = {
+      cfg.renderer,
+      function(v)
+        return v == "mmdr" or v == "headless-chrome"
+      end,
+      '"mmdr" or "headless-chrome"',
+    },
     mmdr_path = { cfg.mmdr_path, "string" },
+    headless_chrome = { cfg.headless_chrome, "table" },
+    ["headless_chrome.mermaid_js"] = { cfg.headless_chrome.mermaid_js, { "string", "table" }, true },
+    ["headless_chrome.node_path"] = { cfg.headless_chrome.node_path, "string" },
+    ["headless_chrome.puppeteer"] = { cfg.headless_chrome.puppeteer, "string", true },
+    ["headless_chrome.background"] = { cfg.headless_chrome.background, "string", true },
+    ["headless_chrome.classic_colors"] = { cfg.headless_chrome.classic_colors, "boolean" },
     theme = { cfg.theme, "string" },
     debounce_ms = { cfg.debounce_ms, "number" },
     fast_text = { cfg.fast_text, "boolean" },

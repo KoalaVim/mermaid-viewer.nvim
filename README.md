@@ -1,6 +1,6 @@
 # mermaid-viewer.nvim
 
-See Mermaid diagrams inside Neovim: rendered inline above every ` ```mermaid ` block in Markdown, and in a floating viewer you can zoom and move around. Renders diagrams using [mmdr](https://github.com/mermaid-rs/mermaid-rs) and displays them via the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) with Unicode placeholders.
+See Mermaid diagrams inside Neovim: rendered inline above every ` ```mermaid ` block in Markdown, and in a floating viewer you can zoom and move around. Renders diagrams using [mmdr](https://github.com/mermaid-rs/mermaid-rs) (or, optionally, real mermaid.js in headless Chrome) and displays them via the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/) with Unicode placeholders.
 
 ## Requirements
 
@@ -16,6 +16,24 @@ cargo install mermaid-rs-renderer
 ```
 
 Or see the [mmdr installation docs](https://github.com/mermaid-rs/mermaid-rs#installation) for Homebrew, Scoop, AUR, and Nix options.
+
+### Renderers
+
+| `renderer`           | Engine                                                       | Speed            | Output                                    |
+| -------------------- | ------------------------------------------------------------ | ---------------- | ----------------------------------------- |
+| `"mmdr"` (default)   | [mmdr](https://github.com/mermaid-rs/mermaid-rs), pure Rust  | milliseconds     | close to mermaid.js                       |
+| `"headless-chrome"`  | mermaid.js itself, in headless Chrome                         | about 0.5s/render | real (latest) mermaid.js output           |
+
+The `"headless-chrome"` renderer needs Node.js, [puppeteer](https://pptr.dev/) with a downloaded
+`chrome-headless-shell` (or Chrome), and a `mermaid.min.js`. Install
+[mermaid-cli](https://github.com/mermaid-js/mermaid-cli) to get all three: `npm install -g @mermaid-js/mermaid-cli`.
+Its install behind `mmdc` is found automatically and its (current) mermaid is used. Set `headless_chrome.mermaid_js` to
+a path, or a list of paths tried in order until one renders, to use other builds. Mermaid options from
+[markdown-preview.nvim](https://github.com/iamcco/markdown-preview.nvim)'s `g:mkdp_preview_options.maid` are applied.
+
+```lua
+require("mermaid-viewer").setup({ renderer = "headless-chrome" })
+```
 
 ## Installation
 
@@ -170,7 +188,15 @@ The plugin works out of the box with no configuration. Call `setup()` only to ov
 
 ```lua
 require("mermaid-viewer").setup({
+  renderer = "mmdr",        -- "mmdr" or "headless-chrome" (see Renderers)
   mmdr_path = "mmdr",       -- path to mmdr binary
+  headless_chrome = {       -- options of the "headless-chrome" renderer
+    mermaid_js = nil,       -- mermaid.min.js path(s) tried in order (nil = mermaid-cli's)
+    node_path = "node",     -- path to node
+    puppeteer = nil,        -- directory to resolve puppeteer from (nil = the mermaid-cli install behind `mmdc`)
+    background = nil,       -- CSS background color (nil = the mermaid theme's own background)
+    classic_colors = true,  -- with theme = "dark": mermaid 10's blue (#81B1DB) borders instead of mermaid 11's grey
+  },
   theme = "default",        -- mermaid theme for every render: "default", "dark", "forest", "neutral", "modern"
   debounce_ms = 300,        -- delay before re-rendering after an edit (inline and viewer)
   fast_text = false,        -- use mmdr --fastText for faster rendering
@@ -246,13 +272,13 @@ removed option to `setup()` logs a warning and it is ignored.
 
 ## Health check
 
-Run `:checkhealth mermaid-viewer` to verify Neovim, `mmdr`, `termguicolors` and terminal placeholder support.
+Run `:checkhealth mermaid-viewer` to verify Neovim, the renderer (`mmdr`, or node, mermaid.js and puppeteer), `termguicolors` and terminal placeholder support.
 
 ## How it works
 
 1. Finds ` ```mermaid ` blocks with treesitter (line scan fallback) and anchors each with an extmark, so blocks keep
    their identity as you edit around them
-2. Renders to PNG via `mmdr` asynchronously, sized from the terminal's real cell size; results are cached by source,
+2. Renders to PNG via `mmdr` (or mermaid.js in headless Chrome) asynchronously, sized from the terminal's real cell size; results are cached by source,
    size and theme
 3. Transmits each PNG once to the terminal as a Kitty virtual placement, then draws it with Unicode placeholder
    characters: as virtual lines above the fence inline, and as buffer lines in the viewer float

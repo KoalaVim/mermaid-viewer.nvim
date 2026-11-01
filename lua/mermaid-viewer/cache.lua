@@ -6,10 +6,11 @@ local temp = require("mermaid-viewer.temp")
 ---@type table<string, { width: number, height: number }> source hash -> natural render size in pixels
 local naturals = {}
 
+--- Identity of a diagram: its source and the renderer drawing it (renderers lay out differently)
 ---@param source string
 ---@return string
 function M.hash(source)
-  return vim.fn.sha256(source)
+  return vim.fn.sha256(require("mermaid-viewer.config").options.renderer .. "\0" .. source)
 end
 
 --- Cache key for a render; width/height nil means natural size

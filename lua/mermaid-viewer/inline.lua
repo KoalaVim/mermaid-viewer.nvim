@@ -125,7 +125,7 @@ local function error_line(msg, width)
       break
     end
   end
-  local text = "mmdr: " .. first
+  local text = config.options.renderer .. ": " .. first
   if vim.fn.strdisplaywidth(text) > width then
     while text ~= "" and vim.fn.strdisplaywidth(text) > width - 1 do
       text = vim.fn.strcharpart(text, 0, vim.fn.strchars(text) - 1)
@@ -226,7 +226,7 @@ local function start_render(buf, st, blk, text_w, text_h)
     if err or not res then
       e.err, e.key, e.hash, e.text_w, e.text_h = err or "render failed", nil, hash, text_w, text_h
     else
-      local key = table.concat({ hash, config.options.theme or "", res.cols .. "x" .. res.rows }, "|")
+      local key = table.concat({ hash, config.options.renderer, config.options.theme or "", res.cols .. "x" .. res.rows }, "|")
       -- acquire before releasing the old image, so the swap has no blank frame
       local img = registry.acquire(key, res.path, res.cols, res.rows)
       e.err, e.key, e.hash, e.text_w, e.text_h = nil, img and key or nil, hash, text_w, text_h

@@ -1,5 +1,14 @@
 ---@alias mermaid_viewer.Theme "default"|"dark"|"forest"|"neutral"|"modern"
 
+---@alias mermaid_viewer.Renderer "mmdr"|"headless-chrome"
+
+---@class mermaid_viewer.HeadlessChromeOptions
+---@field mermaid_js? string|string[] mermaid.min.js path(s), tried in order until one renders (nil = mermaid-cli's)
+---@field node_path? string Path to node
+---@field puppeteer? string Directory to resolve puppeteer from (nil = the mermaid-cli install behind `mmdc`)
+---@field background? string CSS background color (nil = the mermaid theme's background)
+---@field classic_colors? boolean With theme "dark", use mermaid 10's dark colors (blue #81B1DB borders) instead of mermaid 11's grey
+
 ---@class mermaid_viewer.FloatOptions
 ---@field width? number Percentage of editor width (0.0-1.0)
 ---@field height? number Percentage of editor height (0.0-1.0)
@@ -31,7 +40,9 @@
 ---@field max_height? number Max height: <= 1 is a fraction of the window height, > 1 is rows
 
 ---@class mermaid_viewer.Options
+---@field renderer? mermaid_viewer.Renderer Backend: "mmdr" (fast, Rust) or "headless-chrome" (mermaid.js in headless Chrome)
 ---@field mmdr_path? string Path to mmdr binary
+---@field headless_chrome? mermaid_viewer.HeadlessChromeOptions Options of the "headless-chrome" renderer
 ---@field theme? mermaid_viewer.Theme Mermaid theme
 ---@field debounce_ms? number Debounce delay for re-renders
 ---@field fast_text? boolean Use mmdr --fastText for speed
@@ -47,7 +58,9 @@
 ---@field inline? mermaid_viewer.InlineOptions Inline rendering options
 
 ---@class mermaid_viewer.InternalConfig
+---@field renderer mermaid_viewer.Renderer
 ---@field mmdr_path string
+---@field headless_chrome { mermaid_js: string|string[]|nil, node_path: string, puppeteer: string|nil, background: string|nil, classic_colors: boolean }
 ---@field theme mermaid_viewer.Theme
 ---@field debounce_ms number
 ---@field fast_text boolean

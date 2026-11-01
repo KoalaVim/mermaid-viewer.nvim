@@ -11,9 +11,12 @@ local temp = require("mermaid-viewer.temp")
 ---@param output_path string
 ---@param width number|nil
 ---@param height number|nil
----@return string[]
+---@return string[]|nil cmd, string|nil err
 local function build_cmd(input_path, output_path, width, height)
   local opt = config.options
+  if opt.renderer == "headless-chrome" then
+    return require("mermaid-viewer.headless_chrome").cmd(input_path, output_path, width, height)
+  end
   local cmd = { opt.mmdr_path, "-i", input_path, "-o", output_path, "-e", "png" }
 
   if width then
@@ -36,7 +39,7 @@ end
 local function error_message(result)
   local err = result.stderr
   if err == nil or err == "" then
-    err = "mmdr exited with code " .. result.code
+    err = config.options.renderer .. " renderer exited with code " .. result.code
   end
   return err
 end
@@ -57,7 +60,12 @@ function M.render(source, opts, callback)
     return
   end
 
-  vim.system(build_cmd(input_path, output_path, opts.width, opts.height), { text = true }, function(result)
+  local cmd, cmd_err = build_cmd(input_path, output_path, opts.width, opts.height)
+  if not cmd then
+    callback(cmd_err, nil, input_path)
+    return
+  end
+  vim.system(cmd, { text = true }, function(result)
     if result.code ~= 0 then
       callback(error_message(result), nil, input_path)
       return
@@ -107,7 +115,13 @@ function M.cached(source, opts, callback)
     return
   end
 
-  vim.system(build_cmd(input_path, output_path, opts.width, opts.height), { text = true }, function(result)
+  local cmd, cmd_err = build_cmd(input_path, output_path, opts.width, opts.height)
+  if not cmd then
+    os.remove(input_path)
+    finish(cmd_err, nil)
+    return
+  end
+  vim.system(cmd, { text = true }, function(result)
     os.remove(input_path)
     if result.code ~= 0 then
       os.remove(output_path)
