@@ -85,7 +85,8 @@ Diagrams keep their natural size relative to your font, so text is the same size
 takes a few rows, a long one takes more. At `inline.scale = 1.0` a line of diagram text is about one row tall; raise it
 for bigger diagrams. A diagram taller than `inline.max_height` or wider than `inline.max_width` is shrunk to fit
 (keeping its aspect ratio), and it is never wider than the window's text area. Both limits take a fraction of the
-window (`<= 1`, e.g. `max_height = 0.5` is half the window height) or a number of cells (`> 1`). Open a shrunk diagram with
+window (`<= 1`, e.g. `max_height = 0.5` is half the window height) or a number of cells (`> 1`). `max_height = 0` removes
+the height limit, like a web page: diagrams fill the width and tall ones are scrolled past. Open a shrunk diagram with
 `:MermaidView` to read it at full size.
 
 Set `inline = { enabled = false }` to open markdown buffers without diagrams; `:MermaidInline` still enables them for
@@ -209,7 +210,7 @@ require("mermaid-viewer").setup({
     double_click = true,    -- double-click an inline diagram to open it in the viewer
     scale = 1.0,            -- size relative to the editor font (1.0 = diagram text about as tall as a row)
     max_width = 1.0,        -- <= 1: fraction of the window text width, > 1: cells
-    max_height = 40,        -- <= 1: fraction of the window height, > 1: rows
+    max_height = 40,        -- 0: no limit, <= 1: fraction of the window height, > 1: rows
   },
 
   float = {

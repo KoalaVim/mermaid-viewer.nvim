@@ -506,6 +506,53 @@ describe("mermaid-viewer viewer", function()
     assert.is_not_nil(find("d", id))
   end)
 
+  it("sizes a full-editor float to what fits with its border and the command line", function()
+    config.setup({ debounce_ms = 40, terminal = { placeholders = true }, float = { width = 1, height = 1 } })
+    for _, block in ipairs({ WIDE, { "graph TD", "  A --> B", "  B --> C", "  C --> D", "  D --> E", "  E --> F" } }) do
+      local s = open(markdown(block))
+      assert.is_not_nil(s)
+      local w, h = vim.api.nvim_win_get_width(s.win), vim.api.nvim_win_get_height(s.win)
+      -- at 1.0x the whole diagram is visible: the grid fits the window Neovim actually opened
+      assert.is_true(s.cols <= w and s.rows <= h, ("grid %dx%d in a %dx%d window"):format(s.cols, s.rows, w, h))
+      -- and it uses the screen: it touches the available width or height
+      assert.is_true(w == vim.o.columns - 2 or h == vim.o.lines - vim.o.cmdheight - 2)
+      mv.close()
+    end
+  end)
+
+  it("refits the float when the editor is resized", function()
+    local columns = vim.o.columns
+    local s = open(markdown(WIDE))
+    assert.is_not_nil(s)
+    local function fits()
+      local w = vim.api.nvim_win_get_width(s.win)
+      local cfg = vim.api.nvim_win_get_config(s.win)
+      local max = math.floor(vim.o.columns * config.options.float.width)
+      local centered = math.abs(cfg.col - math.floor((vim.o.columns - w - 2) / 2)) <= 1
+      return w <= max and centered, w
+    end
+    local _, wide = fits()
+
+    vim.o.columns = math.floor(columns / 2)
+    vim.cmd("doautocmd VimResized")
+    assert.is_true(wait_for(function()
+      local ok, w = fits()
+      return ok and w < wide
+    end), "float did not shrink")
+    local _, narrow = fits()
+
+    vim.o.columns = columns
+    vim.cmd("doautocmd VimResized")
+    assert.is_true(wait_for(function()
+      local ok, w = fits()
+      return ok and w > narrow and s.cols > 0 and not s.closed
+    end), "float did not grow back")
+    -- re-rendered for the restored size: the image grid fills the float again
+    assert.is_true(wait_for(function()
+      return vim.api.nvim_win_get_width(s.win) == math.min(s.cols, math.floor(vim.o.columns * config.options.float.width))
+    end))
+  end)
+
   it("closes with q and toggles", function()
     local buf = markdown()
     local win = open(buf).win

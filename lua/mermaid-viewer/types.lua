@@ -37,7 +37,7 @@
 ---@field double_click? boolean Double-clicking an inline diagram opens it in the viewer
 ---@field scale? number Diagram size relative to the editor font (1.0 = diagram text about as large as buffer text)
 ---@field max_width? number Max width: <= 1 is a fraction of the window's text width, > 1 is cells
----@field max_height? number Max height: <= 1 is a fraction of the window height, > 1 is rows
+---@field max_height? number Max height: 0 is no limit, <= 1 is a fraction of the window height, > 1 is rows
 
 ---@class mermaid_viewer.Options
 ---@field renderer? mermaid_viewer.Renderer Backend: "mmdr" (fast, Rust) or "headless-chrome" (mermaid.js in headless Chrome)

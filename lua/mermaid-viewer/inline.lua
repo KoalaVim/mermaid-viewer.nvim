@@ -528,7 +528,8 @@ local function ensure_view_autocmds()
     group = group,
     callback = update_all_visible,
   })
-  vim.api.nvim_create_autocmd("WinResized", {
+  -- VimResized too, in case a terminal resize leaves every window's size in cells unchanged
+  vim.api.nvim_create_autocmd({ "WinResized", "VimResized" }, {
     group = group,
     callback = function()
       if resize_timer then

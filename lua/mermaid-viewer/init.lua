@@ -66,6 +66,8 @@ local function resolve_source(buf, block_id)
   return nil, "No mermaid diagram found"
 end
 
+M.RESIZE_DEBOUNCE_MS = 100
+
 ---@param s mermaid_viewer.ViewerState
 local function on_open(s)
   local state = require("mermaid-viewer.state")
@@ -98,6 +100,20 @@ local function on_open(s)
     buffer = s.source.buf,
     callback = function()
       M.close()
+    end,
+  })
+  local resize_gen = 0
+  vim.api.nvim_create_autocmd("VimResized", {
+    group = group,
+    callback = function()
+      -- a terminal resize arrives as a burst of events: fit the float once it settles
+      resize_gen = resize_gen + 1
+      local gen = resize_gen
+      vim.defer_fn(function()
+        if gen == resize_gen then
+          viewer.resized(s)
+        end
+      end, M.RESIZE_DEBOUNCE_MS)
     end,
   })
   vim.api.nvim_create_autocmd("VimLeavePre", {

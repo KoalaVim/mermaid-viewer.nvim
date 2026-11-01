@@ -63,14 +63,32 @@ function M.source_text(src)
   return nil, "Mermaid block no longer exists"
 end
 
---- Largest float content area in cells
+--- Cells the float's border adds on each axis
+---@return number
+local function border_cells()
+  local float = config.options.float
+  local border = (float.win_config or {}).border or float.border
+  return (border == nil or border == "none" or border == "") and 0 or 2
+end
+
+--- Rows and columns a float (with its border) can use: the editor minus the command line
+---@return number cols
+---@return number rows
+local function available()
+  local extra = border_cells()
+  return vim.o.columns - extra, vim.o.lines - vim.o.cmdheight - extra
+end
+
+--- Largest float content area in cells: the configured fraction of the editor (or win_config's width/height), never
+--- more than fits on screen with the border, so the diagram grid always matches the window Neovim actually opens
 ---@return number cols
 ---@return number rows
 function M.max_size()
   local float = config.options.float
   local user = float.win_config or {}
-  local cols = user.width or math.floor(vim.o.columns * float.width)
-  local rows = user.height or math.floor(vim.o.lines * float.height)
+  local avail_cols, avail_rows = available()
+  local cols = math.min(user.width or math.floor(vim.o.columns * float.width), avail_cols)
+  local rows = math.min(user.height or math.floor(vim.o.lines * float.height), avail_rows)
   return math.max(1, cols), math.max(1, rows)
 end
 
@@ -97,8 +115,7 @@ end
 local function geometry(nw, nh)
   local float = config.options.float
   local user = float.win_config or {}
-  local border = user.border or float.border
-  local extra = (border == nil or border == "none" or border == "") and 0 or 2
+  local extra = border_cells()
   local avail = vim.o.lines - vim.o.cmdheight
   return vim.tbl_extend("force", {
     relative = "editor",
@@ -235,7 +252,7 @@ end
 --- Render the bound source at the requested zoom and swap it into the float (opening the float on first success).
 --- Results of superseded requests are dropped.
 ---@param s mermaid_viewer.ViewerState
----@param opts? { zoom?: number, reset?: boolean, focus?: mermaid_viewer.Focus, silent?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState), on_missing?: fun(err: string), on_error?: fun(err: string) }
+---@param opts? { zoom?: number, reset?: boolean, focus?: mermaid_viewer.Focus, silent?: boolean, rerender?: boolean, on_open?: fun(s: mermaid_viewer.ViewerState), on_missing?: fun(err: string), on_error?: fun(err: string) }
 function M.refresh(s, opts)
   opts = opts or {}
   local text, err = M.source_text(s.source)
@@ -255,7 +272,7 @@ function M.refresh(s, opts)
   local want = opts.reset and 1.0 or opts.zoom or s.zoom_req
 
   -- Zoom only: the image already holds the max-zoom resolution, so resize its placement instead of re-rendering
-  if s.image and s.hash == hash and s.theme == config.options.theme and s.win then
+  if not opts.rerender and s.image and s.hash == hash and s.theme == config.options.theme and s.win then
     s.gen = s.gen + 1
     zoom = clamp_zoom(s.aspect, want)
     s.zoom_req = zoom
@@ -294,6 +311,17 @@ function M.refresh(s, opts)
     s.theme = config.options.theme
     show(s, img, key, hash, { aspect = result.aspect, cols = display[1], rows = display[2] }, zoom, opts)
   end)
+end
+
+--- Fit the float to a resized editor: re-place the current image at once (window size, position, zoom cap), then
+--- re-render at the new size so the resolution matches (a cache hit when the max float size did not change)
+---@param s mermaid_viewer.ViewerState
+function M.resized(s)
+  if s.closed or not s.win or not vim.api.nvim_win_is_valid(s.win) then
+    return
+  end
+  M.refresh(s, { zoom = s.zoom_req })
+  M.refresh(s, { zoom = s.zoom_req, rerender = true })
 end
 
 --- Keep the view inside the diagram: native scrolling may move past the last column/row

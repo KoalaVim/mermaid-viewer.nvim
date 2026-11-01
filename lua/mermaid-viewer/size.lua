@@ -25,7 +25,7 @@ M.NATURAL_LINE_PX = 24
 
 --- Inline size: the natural render scaled to the font, shrunk (keeping the aspect) to fit max_width and max_height
 ---@param natural { width: number, height: number } Natural render size in pixels
----@param opts { scale: number, max_width: number, max_height: number } <= 1 is a fraction of text_cols / win_rows
+---@param opts { scale: number, max_width: number, max_height: number } <= 1 is a fraction of text_cols / win_rows; max_height 0 is no limit
 ---@param text_cols number
 ---@param win_rows number
 ---@param cell mermaid_viewer.CellSize
@@ -36,7 +36,14 @@ function M.inline(natural, opts, text_cols, win_rows, cell)
   local w, h = natural.width * px, natural.height * px
   local max_cols = opts.max_width <= 1 and text_cols * opts.max_width or opts.max_width
   max_cols = math.max(1, math.min(math.floor(max_cols), text_cols, M.MAX_CELLS))
-  local max_rows = opts.max_height <= 1 and win_rows * opts.max_height or opts.max_height
+  local max_rows
+  if opts.max_height == 0 then
+    max_rows = M.MAX_CELLS -- no limit, like a web page: the diagram grows with the width and you scroll past it
+  elseif opts.max_height <= 1 then
+    max_rows = win_rows * opts.max_height
+  else
+    max_rows = opts.max_height
+  end
   max_rows = math.max(1, math.min(math.floor(max_rows), M.MAX_CELLS))
   local fit = math.min(1, max_cols * cell.width / w, max_rows * cell.height / h)
   local cols = math.max(1, math.min(max_cols, round(w * fit / cell.width)))

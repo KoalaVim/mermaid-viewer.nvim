@@ -47,6 +47,17 @@ describe("mermaid-viewer.size", function()
       assert.equals(12, rows)
     end)
 
+    it("max_height 0 is no limit: tall diagrams keep their full width", function()
+      local cols, rows = size.inline({ width = 240, height = 2400 }, { scale = 1, max_width = 1, max_height = 0 }, 100, 30, cell)
+      assert.equals(20, cols) -- natural 200px, not shrunk
+      assert.equals(100, rows) -- 2000px, far taller than the 30-row window
+      cols, rows = size.inline({ width = 2400, height = 4800 }, { scale = 1, max_width = 1, max_height = 0 }, 100, 30, cell)
+      assert.equals(100, cols) -- only the text width limits it
+      assert.equals(100, rows)
+      _, rows = size.inline({ width = 240, height = 24000 }, { scale = 1, max_width = 1, max_height = 0 }, 100, 30, cell)
+      assert.equals(size.MAX_CELLS, rows) -- still within the placeholder grid limit
+    end)
+
     it("never goes below one row or column", function()
       local cols, rows = size.inline({ width = 10000, height = 1 }, opts, 5, 50, cell)
       assert.equals(5, cols)
