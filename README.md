@@ -182,7 +182,13 @@ vim.keymap.set("n", "<leader>um", "<Plug>(mermaid-viewer-toggle)")
 vim.keymap.set("n", "<leader>uM", "<Plug>(mermaid-viewer-view)")
 vim.keymap.set("n", "<leader>ui", "<Plug>(mermaid-viewer-inline-toggle)")
 vim.keymap.set("n", "<leader>uc", "<Plug>(mermaid-viewer-collapse-toggle)")
+-- next / previous diagram (count, jumplist, also as a motion: d]m, v]m)
+vim.keymap.set({ "n", "x", "o" }, "]m", "<Plug>(mermaid-viewer-next)")
+vim.keymap.set({ "n", "x", "o" }, "[m", "<Plug>(mermaid-viewer-prev)")
 ```
+
+Next/previous land on a block's opening fence (its inline diagram is right above it), or for a collapsed block on the
+row its diagram hangs from, and stop at the last diagram. In Lua: `require("mermaid-viewer").jump(1 | -1, count?)`.
 
 `require("mermaid-viewer").has_diagram()` tells whether there is a diagram at the cursor, without side effects, so one
 key can open the viewer there and do something else elsewhere:

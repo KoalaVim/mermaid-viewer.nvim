@@ -55,6 +55,73 @@ function M.has_diagram(buf)
   return false
 end
 
+--- Row a jump to `block` lands on: its opening fence, or for a collapsed block (fence hidden) the nearest visible row
+--- above it, where its diagram and marker hang (below it at the top of the buffer)
+---@param buf number
+---@param block mermaid_viewer.Block
+---@return number|nil row 0-based, nil when no row around the block is visible
+local function jump_row(buf, block)
+  local collapse = require("mermaid-viewer.collapse")
+  if not collapse.hides(buf, block.start_row) then
+    return block.start_row
+  end
+  for row = block.start_row - 1, 0, -1 do
+    if not collapse.hides(buf, row) then
+      return row
+    end
+  end
+  for row = block.end_row + 1, vim.api.nvim_buf_line_count(buf) - 1 do
+    if not collapse.hides(buf, row) then
+      return row
+    end
+  end
+end
+
+--- Move the cursor to the count'th next (dir 1) or previous (dir -1) diagram, like ]m / [m: lands on the opening
+--- fence (see jump_row), stops at the last diagram, and adds to the jumplist. Works as a motion in visual and
+--- operator-pending mode.
+---@param dir 1|-1
+---@param count? number defaults to v:count1
+---@return boolean moved
+function M.jump(dir, count)
+  count = count or vim.v.count1
+  local buf = vim.api.nvim_get_current_buf()
+  local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
+  local rows = {}
+  for _, block in ipairs(require("mermaid-viewer.source").blocks(buf)) do
+    rows[#rows + 1] = jump_row(buf, block)
+  end
+  local target = cursor
+  for _ = 1, count do
+    local found
+    if dir > 0 then
+      for _, row in ipairs(rows) do
+        if row > target then
+          found = row
+          break
+        end
+      end
+    else
+      for i = #rows, 1, -1 do
+        if rows[i] < target then
+          found = rows[i]
+          break
+        end
+      end
+    end
+    if not found then
+      break
+    end
+    target = found
+  end
+  if target == cursor then
+    return false
+  end
+  vim.cmd("normal! m'")
+  vim.api.nvim_win_set_cursor(0, { target + 1, 0 })
+  return true
+end
+
 --- Bind the viewer to the diagram under the cursor (markdown and agent terminals; in markdown also from the line just
 --- above a block, where its inline diagram is drawn) or the whole buffer (.mmd / mermaid)
 ---@param buf number

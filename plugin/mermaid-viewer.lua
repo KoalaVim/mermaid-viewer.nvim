@@ -47,6 +47,14 @@ vim.keymap.set("n", "<Plug>(mermaid-viewer-inline-toggle)", function()
   require("mermaid-viewer.inline").toggle(vim.api.nvim_get_current_buf())
 end, { desc = "Toggle inline Mermaid diagrams in the buffer" })
 
+vim.keymap.set({ "n", "x", "o" }, "<Plug>(mermaid-viewer-next)", function()
+  require("mermaid-viewer").jump(1)
+end, { desc = "Next Mermaid diagram" })
+
+vim.keymap.set({ "n", "x", "o" }, "<Plug>(mermaid-viewer-prev)", function()
+  require("mermaid-viewer").jump(-1)
+end, { desc = "Previous Mermaid diagram" })
+
 vim.keymap.set("n", "<Plug>(mermaid-viewer-collapse-toggle)", function()
   require("mermaid-viewer.collapse").toggle(vim.api.nvim_get_current_buf(), vim.api.nvim_win_get_cursor(0)[1] - 1)
 end, { desc = "Toggle collapse of the Mermaid diagram under the cursor" })

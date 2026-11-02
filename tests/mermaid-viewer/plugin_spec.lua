@@ -4,6 +4,8 @@ describe("plugin/mermaid-viewer.lua", function()
     "view",
     "close",
     "toggle",
+    "next",
+    "prev",
     "inline-toggle",
     "collapse-toggle",
   }
