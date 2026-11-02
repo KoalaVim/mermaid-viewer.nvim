@@ -14,6 +14,47 @@ function M.setup(opts)
   require("mermaid-viewer.config").setup(opts)
 end
 
+--- The markdown or agent-terminal block under the cursor, or on the line below it (where markdown draws a block's
+--- inline diagram); the inline module also resolves the cursor sitting on a diagram or collapse marker
+---@param buf number
+---@return table|nil block
+local function cursor_block(buf)
+  local source = require("mermaid-viewer.source")
+  local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
+  local ok, inline = pcall(require, "mermaid-viewer.inline")
+  local function block_at(row)
+    if ok and type(inline.block_at) == "function" then
+      local id = inline.block_at(buf, row)
+      if id then
+        return require("mermaid-viewer.blocks").get(buf, id)
+      end
+    end
+    return source.block_at(buf, row)
+  end
+  local block = block_at(cursor)
+  if not block and cursor + 1 < vim.api.nvim_buf_line_count(buf) then
+    block = block_at(cursor + 1)
+  end
+  return block
+end
+
+--- Whether :MermaidView would find a diagram in the current buffer at the cursor; no side effects, so mappings can
+--- fall back to something else (`if has_diagram() then view() else ... end`)
+---@param buf? number defaults to the current buffer
+---@return boolean
+function M.has_diagram(buf)
+  buf = buf or vim.api.nvim_get_current_buf()
+  local source = require("mermaid-viewer.source")
+  local kind = source.kind(buf)
+  if kind == "markdown" or kind == "terminal" then
+    return cursor_block(buf) ~= nil
+  end
+  if kind == "mermaid" then
+    return source.extract(buf) ~= nil
+  end
+  return false
+end
+
 --- Bind the viewer to the diagram under the cursor (markdown and agent terminals; in markdown also from the line just
 --- above a block, where its inline diagram is drawn) or the whole buffer (.mmd / mermaid)
 ---@param buf number
@@ -34,22 +75,7 @@ local function resolve_source(buf, block_id)
   end
 
   if kind == "markdown" or kind == "terminal" then
-    local cursor = vim.api.nvim_win_get_cursor(0)[1] - 1
-    -- the inline module also resolves the cursor sitting on a diagram or collapse marker
-    local ok, inline = pcall(require, "mermaid-viewer.inline")
-    local function block_at(row)
-      if ok and type(inline.block_at) == "function" then
-        local id = inline.block_at(buf, row)
-        if id then
-          return require("mermaid-viewer.blocks").get(buf, id)
-        end
-      end
-      return source.block_at(buf, row)
-    end
-    local block = block_at(cursor)
-    if not block and cursor + 1 < vim.api.nvim_buf_line_count(buf) then
-      block = block_at(cursor + 1)
-    end
+    local block = cursor_block(buf)
     if not block then
       return nil, "No mermaid diagram found at cursor"
     end

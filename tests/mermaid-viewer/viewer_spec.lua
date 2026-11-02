@@ -169,6 +169,36 @@ describe("mermaid-viewer viewer", function()
     assert.equals(0, #commands())
   end)
 
+  it("has_diagram tells whether view would find a diagram, without side effects", function()
+    local buf = markdown()
+    local function at(row)
+      vim.api.nvim_win_set_cursor(0, { row, 0 })
+      return mv.has_diagram()
+    end
+    local marks = #vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, {})
+    assert.is_false(at(1))
+    assert.is_true(at(2)) -- the line above the block, where its inline diagram hangs
+    assert.is_true(at(3))
+    assert.is_true(at(5))
+    assert.is_true(at(7))
+    assert.is_false(at(8))
+    assert.is_false(at(9))
+    assert.equals(marks, #vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, {}))
+    assert.equals(0, #notes)
+    assert.equals(0, #commands())
+    assert.is_nil(state.current)
+
+    vim.bo[buf].filetype = "lua"
+    assert.is_false(at(5))
+
+    vim.cmd("enew!")
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { "graph TD", "  A --> B" })
+    vim.bo.filetype = "mermaid"
+    assert.is_true(mv.has_diagram())
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {})
+    assert.is_false(mv.has_diagram())
+  end)
+
   it("reports mmdr errors and leaves no float open", function()
     local buf = markdown({ "this is not (( a diagram" })
     open(buf)

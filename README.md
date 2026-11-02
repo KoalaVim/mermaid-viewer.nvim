@@ -184,6 +184,20 @@ vim.keymap.set("n", "<leader>ui", "<Plug>(mermaid-viewer-inline-toggle)")
 vim.keymap.set("n", "<leader>uc", "<Plug>(mermaid-viewer-collapse-toggle)")
 ```
 
+`require("mermaid-viewer").has_diagram()` tells whether there is a diagram at the cursor, without side effects, so one
+key can open the viewer there and do something else elsewhere:
+
+```lua
+vim.keymap.set("n", "K", function()
+  local mv = require("mermaid-viewer")
+  if mv.has_diagram() then
+    mv.view()
+  else
+    vim.lsp.buf.hover()
+  end
+end)
+```
+
 ## Configuration
 
 The plugin works out of the box with no configuration. Call `setup()` only to override defaults:
