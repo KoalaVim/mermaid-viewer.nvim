@@ -58,8 +58,8 @@ describe("mermaid-viewer.terminal", function()
   end)
 
   describe("detection", function()
-    it("accepts kitty, ghostty and herdr via TERM_PROGRAM", function()
-      for _, p in ipairs({ "ghostty", "kitty", "herdr" }) do
+    it("accepts kitty, ghostty, herdr and rex via TERM_PROGRAM", function()
+      for _, p in ipairs({ "ghostty", "kitty", "herdr", "rex" }) do
         env(p, "xterm-256color")
         assert.is_true((terminal.supported()), p)
       end

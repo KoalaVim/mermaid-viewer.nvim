@@ -93,7 +93,7 @@ describe("mermaid-viewer.health", function()
     local e = errors_matching("Terminal does not support")
     assert.are.equal(1, #e)
     assert.is_truthy(e[1].msg:find("WezTerm"))
-    assert.is_truthy(table.concat(e[1].advice, " "):find("Kitty, Ghostty, herdr", 1, true))
+    assert.is_truthy(table.concat(e[1].advice, " "):find("Kitty, Ghostty, herdr, Rex", 1, true))
   end)
 
   it("reports ERROR when termguicolors is off", function()
