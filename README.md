@@ -6,7 +6,7 @@ See Mermaid diagrams inside Neovim: rendered inline above every ` ```mermaid ` b
 
 - Neovim >= 0.12
 - [mmdr](https://github.com/mermaid-rs/mermaid-rs) - Fast Mermaid renderer written in Rust
-- A terminal that supports Kitty graphics Unicode placeholders: [Kitty](https://sw.kovidgoyal.net/kitty/), [Ghostty](https://ghostty.org/), or [herdr](https://herdr.dev/) running in one of them. WezTerm is not supported (no placeholder support).
+- A terminal that supports Kitty graphics Unicode placeholders: [Kitty](https://sw.kovidgoyal.net/kitty/), [Ghostty](https://ghostty.org/), [herdr](https://herdr.dev/) running in one of them, or Rex. WezTerm is not supported (no placeholder support).
 - `termguicolors` enabled (placeholders encode the image id in the text color)
 
 ### Installing mmdr

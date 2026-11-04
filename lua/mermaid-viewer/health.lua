@@ -25,7 +25,7 @@ function M.check()
     else
       vim.health.error(
         "Terminal does not support Kitty graphics Unicode placeholders: " .. reason,
-        { "Use a supported terminal: Kitty, Ghostty, herdr", "Or force it with terminal.placeholders = true in setup()" }
+        { "Use a supported terminal: Kitty, Ghostty, herdr, Rex", "Or force it with terminal.placeholders = true in setup()" }
       )
     end
   else

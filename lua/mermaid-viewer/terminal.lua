@@ -7,12 +7,14 @@ local TERM_PROGRAMS = {
   ghostty = true,
   -- PROVISIONAL: herdr is assumed to work until the manual spike (task 1.1) says otherwise. Flip to false if not.
   herdr = true,
+  -- Rex embeds libghostty, which implements Kitty graphics virtual placements
+  rex = true,
 }
 
 local TERMS = { ["xterm-kitty"] = true, ["xterm-ghostty"] = true }
 local ENV_MARKERS = { "KITTY_WINDOW_ID", "GHOSTTY_RESOURCES_DIR" }
 
-local SUPPORTED_NAMES = "Kitty, Ghostty, herdr"
+local SUPPORTED_NAMES = "Kitty, Ghostty, herdr, Rex"
 
 local warned = false
 local debug_group
