@@ -233,7 +233,7 @@ end
 ---@param first number
 ---@param last number
 ---@return mermaid_viewer.Block[]
-local function blocks_terminal(get, first, last)
+local function scan_terminal(get, first, last)
   local blocks = {}
   local i = first
   while i <= last do
@@ -297,6 +297,50 @@ local function blocks_terminal(get, first, last)
       end
     end
     i = i + 1
+  end
+  return blocks
+end
+
+--- Normalize agent code gutters before scanning, retaining physical rows for image anchors.
+--- A blank numbered gutter denotes a wrapped continuation, not a new Mermaid statement.
+local function blocks_terminal(get, first, last)
+  local lines, starts, ends = {}, {}, {}
+  local gutter, previous_number
+  local scan_last = 0
+  for row = first, last + TERMINAL_MAX_BLOCK do
+    local raw = get(row)
+    if not raw then
+      break
+    end
+    -- Claude's copy control is UI, not diagram source. Require padding so a literal icon survives.
+    raw = raw:gsub("%s%s+⧉%s*$", "")
+    local prefix, number, body = raw:match("^(%s*)(%d+)  (.*)$")
+    local column = prefix and (#prefix + #number + 2)
+    if number and (not previous_number or (tonumber(number) == previous_number + 1 and column == gutter)) then
+      gutter, previous_number = column, tonumber(number)
+      lines[#lines + 1] = string.rep(" ", gutter) .. body
+      starts[#lines], ends[#lines] = row, row
+    elseif gutter and raw:sub(1, gutter):match("^%s+$") and #raw > gutter and raw:find("%S") then
+      -- Continuations occupy the code column with an empty line-number column.
+      lines[#lines] = lines[#lines] .. raw:sub(gutter + 1)
+      ends[#lines] = row
+    else
+      gutter, previous_number = nil, nil
+      lines[#lines + 1] = raw
+      starts[#lines], ends[#lines] = row, row
+    end
+    if row <= last then
+      scan_last = #lines
+    end
+  end
+  local blocks = scan_terminal(function(i)
+    return lines[i]
+  end, 1, scan_last)
+  for _, block in ipairs(blocks) do
+    block.start_row = starts[block.start_row + 1] - 1
+    block.end_row = ends[block.end_row + 1] - 1
+    block.content_start = starts[block.content_start + 1] - 1
+    block.content_end = ends[block.content_end + 1] - 1
   end
   return blocks
 end

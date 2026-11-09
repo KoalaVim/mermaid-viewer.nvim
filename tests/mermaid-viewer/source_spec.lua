@@ -228,6 +228,25 @@ describe("mermaid-viewer.source", function()
       assert.are.equal("sequenceDiagram\n    Alice->>Bob: Hi", blocks[2].content)
     end)
 
+    it("strips numbered gutters and joins wrapped continuation rows with physical anchors", function()
+      local bufnr = make_buf({
+        "   ── mermaid                   ⧉ ",
+        "      1  sequenceDiagram",
+        "      2      Alice->>Bob: a long mes",
+        "         sage",
+        "      3      Bob-->>Alice: OK                 ⧉",
+        "",
+        "  done",
+      }, "sidekick_terminal")
+      local blocks = source.blocks(bufnr)
+      assert.are.equal(1, #blocks)
+      assert.are.equal(1, blocks[1].start_row)
+      assert.are.equal(4, blocks[1].end_row)
+      assert.are.equal(1, blocks[1].content_start)
+      assert.are.equal(4, blocks[1].content_end)
+      assert.are.equal("sequenceDiagram\n    Alice->>Bob: a long message\n    Bob-->>Alice: OK", blocks[1].content)
+    end)
+
     it("ignores prose and declarations without a body", function()
       local bufnr = make_buf({ "graph of nodes", "    A --> B", "flowchart TD", "next" }, "sidekick_terminal")
       assert.are.same({}, source.blocks(bufnr))
