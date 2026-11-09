@@ -31,6 +31,7 @@
 
 ---@class mermaid_viewer.TerminalOptions
 ---@field placeholders? boolean Override Unicode placeholder support detection (nil = detect from TERM_PROGRAM/TERM)
+---@field fullscreen? boolean Use repaint-aware overlays within agent code blocks instead of inserting virtual lines
 
 ---@class mermaid_viewer.InlineOptions
 ---@field enabled? boolean Render mermaid blocks inline in markdown buffers (toggle per buffer with :MermaidInline)
@@ -76,7 +77,7 @@
 ---@field pan_step number
 ---@field debug boolean
 ---@field log boolean
----@field terminal { placeholders: boolean|nil }
+---@field terminal { placeholders: boolean|nil, fullscreen: boolean }
 ---@field terminal_filetypes string[]
 ---@field inline { enabled: boolean, collapse: boolean, double_click: boolean, scale: number, max_width: number, max_height: number }
 

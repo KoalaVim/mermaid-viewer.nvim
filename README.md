@@ -42,7 +42,7 @@ require("mermaid-viewer").setup({ renderer = "headless-chrome" })
 ```lua
 {
   "KoalaVim/mermaid-viewer.nvim",
-  cmd = { "MermaidView", "MermaidClose", "MermaidToggle", "MermaidInline", "MermaidCollapse" },
+  cmd = { "MermaidView", "MermaidClose", "MermaidToggle", "MermaidInline", "MermaidCollapse", "MermaidFullscreen" },
   ft = { "markdown", "mermaid", "sidekick_terminal" },
   keys = {
     { "<leader>um", "<cmd>MermaidToggle<cr>", ft = { "markdown", "mermaid", "sidekick_terminal" }, desc = "Mermaid Viewer" },
@@ -77,7 +77,31 @@ stripped): a declaration line such as `flowchart TD` or `sequenceDiagram`, follo
 line that is not indented more than the declaration. A diagram that fails to render (for example while it is still
 being written) shows nothing. Only the output around the windows showing the terminal is scanned (a screen above and
 below, plus 100 rows above for a diagram's start), so long sessions stay fast. `:MermaidView` opens the diagram under the cursor (in terminal-normal mode). Lines the
-agent's UI wrapped are not joined back, so a diagram with very long lines may not render.
+agent's UI wrapped are joined back when a numbered gutter identifies continuation rows; unnumbered wrapping remains ambiguous.
+
+### Fullscreen agent TUIs
+
+Claude and Pi fullscreen interfaces repaint terminal rows when scrolling their internal conversation. Normal inline
+virtual lines cannot follow that layout. In the agent's terminal buffer, enter terminal-normal mode and run
+`:MermaidFullscreen` to toggle repaint-aware overlays. To enable them by default for configured agent terminal filetypes:
+
+```lua
+require("mermaid-viewer").setup({ terminal = { fullscreen = true } })
+```
+
+The per-buffer override is `vim.b.mermaid_viewer_fullscreen` (boolean). This mode is explicit, not automatically
+detected; turn it off when returning to ordinary scrollback output.
+
+- Images fit inside the existing diagram source rows instead of adding virtual lines. Large diagrams can look small;
+  use `:MermaidView` for the full-size viewer.
+- On repaint, stale overlays are hidden and visible diagrams are reconciled at most once every 50 ms. Continuous
+  output does not postpone reconciliation indefinitely. Hidden terminals are not scanned.
+- A bounded cache retains up to 16 recently removed image entries, so moving a previously rendered diagram or
+  scrolling it out and back at the same dimensions does not rerender or upload it again.
+- Only visible source is scanned. Diagrams missing their declaration or reaching the bottom viewport edge are not
+  rendered. Partial-diagram recognition is not supported; clipped source can still be ambiguous if the TUI inserts
+  a footer before the viewport edge.
+- Normal markdown/scrollback inline rendering is unchanged. The terminal filetype must still be in `terminal_filetypes`.
 
 Collapsing applies to markdown blocks only.
 

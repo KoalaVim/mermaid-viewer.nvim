@@ -294,6 +294,18 @@ describe("mermaid-viewer.source", function()
       assert.are.equal(0, blocks[1].start_row)
     end)
 
+    it("does not scan hidden fullscreen terminals or render bottom-edge fragments", function()
+      local bufnr = make_buf({ "flowchart TD", "    A --> B" }, "sidekick_terminal")
+      vim.b[bufnr].mermaid_viewer_fullscreen = true
+      assert.are.same({}, source.blocks(bufnr))
+      vim.api.nvim_set_current_buf(bufnr)
+      vim.cmd("redraw")
+      assert.are.same({}, source.blocks(bufnr))
+      vim.api.nvim_buf_set_lines(bufnr, -1, -1, false, { "", "done", "" })
+      vim.cmd("redraw")
+      assert.are.equal(1, #source.blocks(bufnr))
+    end)
+
     it("scans only the configured terminal filetypes", function()
       require("mermaid-viewer.config").setup({ terminal_filetypes = {} })
       local bufnr = make_buf(OUTPUT, "sidekick_terminal")

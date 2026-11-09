@@ -109,6 +109,111 @@ describe("mermaid-viewer.inline", function()
 
   local PLACEHOLDER = vim.fn.nr2char(0x10EEEE)
 
+  describe("fullscreen terminal repainting", function()
+    local screen_ns = vim.api.nvim_create_namespace("mermaid_viewer_fullscreen")
+    local diagram = { "  flowchart TD", "      A --> B", "      B --> C", "", "  done", "" }
+
+    local function screen_marks(b)
+      return vim.api.nvim_buf_get_extmarks(b, screen_ns, 0, -1, { details = true })
+    end
+
+    local function terminal_buf()
+      local b = make_buf({}, { ft = "sidekick_terminal" })
+      vim.b[b].mermaid_viewer_fullscreen = true
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, diagram)
+      vim.cmd("redraw")
+      return b
+    end
+
+    it("uses overlays without adding terminal rows and follows in-place repaints without rerendering", function()
+      local b = terminal_buf()
+      local render = require("mermaid-viewer.render")
+      local original, calls = render.diagram, 0
+      render.diagram = function(...)
+        calls = calls + 1
+        return original(...)
+      end
+      inline.enable(b)
+      wait_for(function() return #screen_marks(b) > 0 end)
+      assert.equals(0, #marks(b))
+      local first = screen_marks(b)
+      assert.equals(0, first[1][2])
+      assert.equals("win_col", first[1][4].virt_text_pos)
+      assert.is_nil(first[1][4].virt_lines)
+      assert.is_true(#first <= 3)
+      local uploads = sent_matching("a=t")
+      local moved = concat({ "prose", "" }, diagram)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, moved)
+      vim.api.nvim_exec_autocmds("TextChanged", { buffer = b })
+      vim.cmd("redraw")
+      wait_for(function()
+        local m = screen_marks(b)
+        return #m > 0 and m[1][2] == 2
+      end)
+      assert.equals(1, calls)
+      assert.equals(uploads, sent_matching("a=t"))
+      assert.same(moved, vim.api.nvim_buf_get_lines(b, 0, -1, false))
+    end)
+
+    it("hides images when their text disappears and reuses the image when it returns", function()
+      local b = terminal_buf()
+      local render = require("mermaid-viewer.render")
+      local original, calls = render.diagram, 0
+      render.diagram = function(...)
+        calls = calls + 1
+        return original(...)
+      end
+      inline.enable(b)
+      wait_for(function() return #screen_marks(b) > 0 end)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "unrelated TUI screen", "" })
+      vim.api.nvim_exec_autocmds("TextChanged", { buffer = b })
+      vim.cmd("redraw")
+      wait_for(function() return #screen_marks(b) == 0 end)
+      -- Allow the reconciliation to stash the disappeared entry in the bounded reuse cache.
+      vim.wait(120, function() return false end, 10)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, diagram)
+      vim.api.nvim_exec_autocmds("TextChanged", { buffer = b })
+      vim.cmd("redraw")
+      wait_for(function() return #screen_marks(b) > 0 end)
+      assert.equals(1, calls)
+      inline.disable(b)
+      assert.equals(0, #screen_marks(b))
+    end)
+
+    it("restores an unchanged diagram after a repaint elsewhere on the screen", function()
+      local b = terminal_buf()
+      inline.enable(b)
+      wait_for(function() return #screen_marks(b) > 0 end)
+      local before = screen_marks(b)
+      vim.api.nvim_buf_set_lines(b, 4, 5, false, { "different footer" })
+      vim.api.nvim_exec_autocmds("TextChanged", { buffer = b })
+      assert.same(before, screen_marks(b), "footer repaint must not blank overlays")
+      vim.cmd("redraw")
+      vim.wait(120, function() return false end, 10)
+      assert.same(before, screen_marks(b), "unchanged overlays retain their extmark ids")
+    end)
+  end)
+
+  describe("fullscreen overlay mouse handling", function()
+    it("recognizes overlay cells without treating the rest of the source row as an image", function()
+      local b = make_buf({ "  flowchart TD", "      A --> B", "      B --> C", "", "done", "" }, { ft = "sidekick_terminal" })
+      vim.b[b].mermaid_viewer_fullscreen = true
+      inline.enable(b)
+      local screen_ns = vim.api.nvim_create_namespace("mermaid_viewer_fullscreen")
+      wait_for(function()
+        return #vim.api.nvim_buf_get_extmarks(b, screen_ns, 0, -1, {}) > 0
+      end)
+      vim.cmd("redraw")
+      local win = vim.api.nvim_get_current_win()
+      local p = vim.fn.screenpos(win, 1, 1)
+      local info = vim.fn.getwininfo(win)[1]
+      local pos = { winid = win, line = 1, screenrow = p.row, screencol = info.wincol + info.textoff }
+      assert.equals(inline.block_at(b, 0), inline.diagram_at_mouse(pos))
+      pos.screencol = info.wincol + info.width - 1
+      assert.is_nil(inline.diagram_at_mouse(pos))
+    end)
+  end)
+
   describe("rendering (5.1)", function()
     it("renders each mermaid block above its fence and ignores other languages", function()
       local lines = concat({ "# T" }, TALL, { "text" }, { "```lua", "print(1)", "```" }, { "" }, OTHER)

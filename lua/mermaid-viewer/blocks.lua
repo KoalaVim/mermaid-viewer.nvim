@@ -172,7 +172,7 @@ end
 --- attached buffer only replaces the callback.
 ---@param bufnr number
 ---@param on_diff fun(diff: mermaid_viewer.BlockDiff)
-function M.attach(bufnr, on_diff)
+function M.attach(bufnr, on_diff, opts)
   if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
@@ -187,12 +187,12 @@ function M.attach(bufnr, on_diff)
       return
     end
     local diff = M.scan(bufnr)
-    if has_changes(diff) and states[bufnr].on_diff then
+    if (has_changes(diff) or (opts and opts.notify_unchanged and opts.notify_unchanged())) and states[bufnr].on_diff then
       states[bufnr].on_diff(diff)
     end
   end
 
-  st.augroup = debounce.watch(bufnr, rescan, "blocks")
+  st.augroup = debounce.watch(bufnr, rescan, "blocks", opts)
   vim.api.nvim_create_autocmd("BufWipeout", {
     group = st.augroup,
     buffer = bufnr,

@@ -13,6 +13,7 @@ local render = require("mermaid-viewer.render")
 local size = require("mermaid-viewer.size")
 local source = require("mermaid-viewer.source")
 local terminal = require("mermaid-viewer.terminal")
+local fullscreen = require("mermaid-viewer.fullscreen")
 
 local ns = vim.api.nvim_create_namespace("mermaid_viewer_inline")
 -- Same name as blocks.lua's namespace, which resolves to the same id: we read the anchor positions from it
@@ -39,6 +40,9 @@ local SCROLL_DEBOUNCE_MS = 100
 ---@field cache? { tick: number, list: mermaid_viewer.InlineBlock[] }
 ---@field scanning? boolean a scan triggered by update_visible is running
 ---@field click? boolean the double-click mapping is set
+---@field dirty? boolean fullscreen terminal is awaiting reconciliation
+---@field reuse mermaid_viewer.InlineEntry[] bounded recently removed fullscreen images
+---@field next_token number monotonically increasing render request id
 
 ---@type table<number, mermaid_viewer.InlineState>
 local states = {}
@@ -144,6 +148,11 @@ local function place(buf, st, blk)
   local hidden = collapse.is_hidden(buf, blk.id)
   local virt = {}
   local img = e and e.key and registry.get(e.key)
+  if fullscreen.enabled(buf) then
+    pcall(vim.api.nvim_buf_del_extmark, buf, ns, blk.id)
+    fullscreen.place(buf, blk, e and e.hash == blk.hash and img or nil)
+    return
+  end
   if img then
     virt = kitty.placeholder_virt_lines(img.cols, img.rows, img.hl)
   elseif e and e.err and source.kind(buf) ~= "terminal" then
@@ -170,8 +179,18 @@ end
 ---@param id number
 local function drop_entry(buf, st, id)
   local e = st.entries[id]
+  fullscreen.clear(buf, id)
   if e and e.key then
-    registry.release(e.key)
+    if fullscreen.enabled(buf) then
+      -- Keep a bounded working set alive while a TUI scrolls a diagram out of view and back.
+      local cache = st.reuse
+      cache[#cache + 1] = e
+      if #cache > 16 then
+        registry.release(table.remove(cache, 1).key)
+      end
+    else
+      registry.release(e.key)
+    end
   end
   st.entries[id] = nil
   st.tokens[id] = nil
@@ -206,13 +225,38 @@ end
 ---@param text_h number
 local function start_render(buf, st, blk, text_w, text_h)
   local id, hash = blk.id, blk.hash
-  local token = (st.tokens[id] or 0) + 1
+  if fullscreen.enabled(buf) then
+    text_h = math.max(1, math.min(text_h, blk.content_end - blk.content_start + 1))
+    for i, cached in ipairs(st.reuse) do
+      if cached.hash == hash and cached.text_w == text_w and cached.text_h == text_h then
+        local old = st.entries[id]
+        st.entries[id] = table.remove(st.reuse, i)
+        if old and old.key then
+          registry.release(old.key)
+        end
+        place(buf, st, blk)
+        return
+      end
+    end
+  end
+  st.next_token = st.next_token + 1
+  local token = st.next_token
   st.tokens[id] = token
   st.pending[id] = { hash = hash, text_w = text_w, text_h = text_h }
 
   local function target(aspect, natural)
     local cell = kitty.cell_size()
-    local cols, rows = size.inline(natural, config.options.inline, text_w, text_h, cell)
+    local inline_opts = config.options.inline
+    if fullscreen.enabled(buf) then
+      local max_height = inline_opts.max_height
+      if max_height == 0 then
+        max_height = text_h
+      elseif max_height > 1 then
+        max_height = math.min(max_height, text_h)
+      end
+      inline_opts = vim.tbl_extend("force", inline_opts, { max_height = max_height })
+    end
+    local cols, rows = size.inline(natural, inline_opts, text_w, text_h, cell)
     require("mermaid-viewer.log").log("inline.size", {
       buf = buf,
       block = id,
@@ -228,9 +272,15 @@ local function start_render(buf, st, blk, text_w, text_h)
 
   render.diagram(blk.content, target, function(err, res)
     if states[buf] ~= st or st.tokens[id] ~= token or not vim.api.nvim_buf_is_valid(buf) then
+      require("mermaid-viewer.log").log("inline.cancelled", { buf = buf, block = id, token = token, current_token = st.tokens[id], active = states[buf] == st })
       return
     end
     st.pending[id] = nil
+    local current = M.current_block(buf, id)
+    if not current or current.hash ~= hash or (fullscreen.enabled(buf) and st.dirty) then
+      require("mermaid-viewer.log").log("inline.stale", { buf = buf, block = id, dirty = st.dirty, current = current, hash = hash })
+      return
+    end
     local e = st.entries[id] or {}
     st.entries[id] = e
     local old_key = e.key
@@ -326,11 +376,12 @@ function M.update_visible(buf)
         visible = true
       end
     end
+    local height = fullscreen.enabled(buf) and math.max(1, math.min(text_h, blk.content_end - blk.content_start + 1)) or text_h
     local e, p = st.entries[blk.id or -1], st.pending[blk.id or -1]
-    local fresh = e and e.hash == blk.hash and (e.err or (e.text_w == text_w and e.text_h == text_h))
-    local queued = p and p.hash == blk.hash and p.text_w == text_w and p.text_h == text_h
+    local fresh = e and e.hash == blk.hash and (e.err or (e.text_w == text_w and e.text_h == height))
+    local queued = p and p.hash == blk.hash and p.text_w == text_w and p.text_h == height
     if visible and blk.id and not fresh and not queued then
-      start_render(buf, st, blk, text_w, text_h)
+      start_render(buf, st, blk, text_w, height)
     end
   end
 end
@@ -339,9 +390,15 @@ end
 ---@param st mermaid_viewer.InlineState
 ---@param diff mermaid_viewer.BlockDiff
 on_diff = function(buf, st, diff)
+  st.dirty = nil
   st.cache = nil
   for _, blk in ipairs(diff.removed) do
     drop_entry(buf, st, blk.id)
+  end
+  if fullscreen.enabled(buf) then
+    for _, blk in ipairs(diff.changed) do
+      drop_entry(buf, st, blk.id)
+    end
   end
   M.refresh(buf)
   M.update_visible(buf)
@@ -417,6 +474,9 @@ function M.diagram_at_mouse(pos)
   if not states[buf] then
     return nil
   end
+  if fullscreen.enabled(buf) then
+    return fullscreen.at_mouse(pos)
+  end
   local row = pos.line - 1
   local top = vim.fn.screenpos(pos.winid, pos.line, 1).row
   if top == 0 then
@@ -480,6 +540,10 @@ local function teardown(buf)
     return
   end
   states[buf] = nil
+  fullscreen.clear(buf)
+  for _, e in ipairs(st.reuse) do
+    registry.release(e.key)
+  end
   for id in pairs(st.entries) do
     local e = st.entries[id]
     if e.key then
@@ -595,7 +659,7 @@ function M.enable(buf)
     return false
   end
   user_off[buf] = nil
-  local st = { entries = {}, tokens = {}, pending = {} }
+  local st = { entries = {}, tokens = {}, pending = {}, reuse = {}, next_token = 0 }
   states[buf] = st
   ensure_view_autocmds()
   if config.options.inline.double_click then
@@ -610,7 +674,20 @@ function M.enable(buf)
     if states[buf] == st then
       on_diff(buf, st, diff)
     end
-  end)
+  end, {
+    throttle_ms = function()
+      return fullscreen.enabled(buf) and 50 or nil
+    end,
+    notify_unchanged = function()
+      return fullscreen.enabled(buf)
+    end,
+    on_dirty = function()
+      if states[buf] == st and fullscreen.enabled(buf) and not st.dirty then
+        st.dirty = true
+        fullscreen.invalidate(buf)
+      end
+    end,
+  })
   return true
 end
 

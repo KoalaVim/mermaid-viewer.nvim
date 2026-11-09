@@ -23,6 +23,20 @@ vim.api.nvim_create_user_command("MermaidInline", function()
   require("mermaid-viewer.inline").toggle(vim.api.nvim_get_current_buf())
 end, { desc = "Toggle inline Mermaid diagrams in the buffer" })
 
+vim.api.nvim_create_user_command("MermaidFullscreen", function()
+  local buf = vim.api.nvim_get_current_buf()
+  if require("mermaid-viewer.source").kind(buf) ~= "terminal" then
+    vim.notify("MermaidFullscreen applies to agent terminal buffers only", vim.log.levels.INFO)
+    return
+  end
+  local enabled = not require("mermaid-viewer.fullscreen").enabled(buf)
+  local inline = require("mermaid-viewer.inline")
+  inline.disable(buf)
+  vim.b[buf].mermaid_viewer_fullscreen = enabled
+  inline.enable(buf)
+  vim.notify("Mermaid fullscreen overlays " .. (enabled and "enabled" or "disabled"))
+end, { desc = "Toggle repaint-aware Mermaid overlays for a fullscreen agent TUI" })
+
 vim.api.nvim_create_user_command("MermaidCollapse", function()
   require("mermaid-viewer.collapse").toggle(vim.api.nvim_get_current_buf(), vim.api.nvim_win_get_cursor(0)[1] - 1)
 end, { desc = "Toggle collapse of the Mermaid diagram under the cursor" })

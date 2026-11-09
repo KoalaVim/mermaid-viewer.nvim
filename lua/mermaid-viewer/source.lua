@@ -359,8 +359,30 @@ function M.blocks(bufnr)
     return {}
   end
   if kind == "terminal" then
+    local get = line_reader(bufnr)
+    if require("mermaid-viewer.fullscreen").enabled(bufnr) then
+      local found, seen = {}, {}
+      for _, win in ipairs(vim.fn.win_findbuf(bufnr)) do
+        local info = vim.fn.getwininfo(win)[1]
+        local first, last = info.topline, info.botline
+        local bounded = function(i)
+          if i >= first and i <= last then
+            return get(i)
+          end
+        end
+        for _, block in ipairs(blocks_terminal(bounded, first, last)) do
+          -- A block touching the viewport edge may be truncated. Never render that fragment.
+          if block.end_row < last - 1 and not seen[block.start_row] then
+            found[#found + 1] = block
+            seen[block.start_row] = true
+          end
+        end
+      end
+      table.sort(found, function(a, b) return a.start_row < b.start_row end)
+      return found
+    end
     local first, last = terminal_range(bufnr)
-    return blocks_terminal(line_reader(bufnr), first + 1, last + 1)
+    return blocks_terminal(get, first + 1, last + 1)
   end
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   if kind == "markdown" then

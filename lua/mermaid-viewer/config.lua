@@ -51,9 +51,10 @@ local defaults = {
   debug = false,
   ---@type boolean
   log = false,
-  ---@type { placeholders: boolean|nil }
+  ---@type { placeholders: boolean|nil, fullscreen: boolean }
   terminal = {
     placeholders = nil,
+    fullscreen = false,
   },
   ---@type string[]
   terminal_filetypes = { "sidekick_terminal" },
@@ -155,6 +156,7 @@ function M.validate(cfg)
     log = { cfg.log, "boolean" },
     terminal = { cfg.terminal, "table" },
     ["terminal.placeholders"] = { cfg.terminal.placeholders, "boolean", true },
+    ["terminal.fullscreen"] = { cfg.terminal.fullscreen, "boolean" },
     terminal_filetypes = { cfg.terminal_filetypes, "table" },
     inline = { cfg.inline, "table" },
     ["inline.enabled"] = { cfg.inline.enabled, "boolean" },
